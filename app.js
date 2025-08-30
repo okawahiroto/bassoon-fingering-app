@@ -12,6 +12,7 @@
 
 (function () {
   const wrapper = document.getElementById('bassoon-wrapper');
+  const downloadBtn = document.getElementById('download-btn');
   if (!wrapper) return;
   const src = wrapper.getAttribute('data-src');
   if (!src) return;
@@ -43,6 +44,69 @@
           cycleElementColor(shape);
         }
       });
+
+      // ダウンロードボタンを有効化
+      if (downloadBtn instanceof HTMLButtonElement) {
+        downloadBtn.disabled = false;
+        downloadBtn.addEventListener('click', () => {
+          const currentSvg = document.getElementById('bassoonSvg');
+          if (!currentSvg) return;
+
+          // 表示サイズに合わせてPNGを書き出す
+          const rect = currentSvg.getBoundingClientRect();
+          const width = Math.max(1, Math.round(rect.width));
+          const height = Math.max(1, Math.round(rect.height));
+
+          const serializer = new XMLSerializer();
+          let svgString = serializer.serializeToString(currentSvg);
+
+          // XML宣言が無い場合の互換性確保（任意）
+          if (!/^<\?xml/.test(svgString)) {
+            svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + svgString;
+          }
+
+          const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(svgBlob);
+
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            // 背景を白で塗りつぶしてから描画（透過防止）
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            URL.revokeObjectURL(url);
+
+            canvas.toBlob((blob) => {
+              if (!blob) return;
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = 'fingering.png';
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            }, 'image/png');
+          };
+          img.onerror = () => {
+            // 万一PNG化に失敗したら生のSVGをダウンロード
+            URL.revokeObjectURL(url);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(svgBlob);
+            a.download = 'fingering.svg';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+          };
+          img.src = url;
+        });
+      }
     })
     .catch((err) => {
       console.error('SVG load failed', err);
