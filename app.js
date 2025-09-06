@@ -13,11 +13,16 @@
 (function () {
   const wrapper = document.getElementById('bassoon-wrapper');
   const downloadBtn = document.getElementById('download-btn');
+  const textBtn = document.getElementById('text-btn');
+  const textModal = document.getElementById('text-modal');
+  const textArea = document.getElementById('text-area');
+  const textCloseBtn = document.getElementById('text-close-btn');
   if (!wrapper) return;
   const src = wrapper.getAttribute('data-src');
   if (!src) return;
 
   const colors = ['black', 'red', 'white'];
+  const TEXT_KEY = 'fingering_text';
 
   function cycleElementColor(el) {
     const raw = el.getAttribute('data-color-index');
@@ -26,6 +31,36 @@
     // 図形の内側がクリック対象なので、常にfillを変更
     el.setAttribute('fill', colors[idx]);
     el.setAttribute('data-color-index', String(idx));
+  }
+
+  // --- テキストモーダルとLocalStorage ---
+  function openTextModal() {
+    if (!(textModal instanceof HTMLElement)) return;
+    textModal.hidden = false;
+    const saved = getSavedText();
+    if (textArea instanceof HTMLTextAreaElement) {
+      textArea.value = saved;
+      setTimeout(() => textArea.focus(), 0);
+    }
+  }
+  function closeTextModal() {
+    if (!(textModal instanceof HTMLElement)) return;
+    textModal.hidden = true;
+  }
+  function saveText() {
+    if (!(textArea instanceof HTMLTextAreaElement)) return;
+    try {
+      localStorage.setItem(TEXT_KEY, textArea.value || '');
+    } catch (e) {
+      // ignore
+    }
+  }
+  function getSavedText() {
+    try {
+      return localStorage.getItem(TEXT_KEY) || '';
+    } catch {
+      return '';
+    }
   }
 
   fetch(src)
@@ -91,6 +126,17 @@
               a.click();
               a.remove();
               setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+
+              // メモのテキストも同時にダウンロード
+              const notes = getSavedText();
+              const tb = new Blob([notes], { type: 'text/plain;charset=utf-8' });
+              const ta = document.createElement('a');
+              ta.href = URL.createObjectURL(tb);
+              ta.download = 'fingering-notes.txt';
+              document.body.appendChild(ta);
+              ta.click();
+              ta.remove();
+              setTimeout(() => URL.revokeObjectURL(ta.href), 1000);
             }, 'image/png');
           };
           img.onerror = () => {
@@ -103,9 +149,44 @@
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+
+            // 失敗時もテキストはダウンロード
+            const notes = getSavedText();
+            const tb = new Blob([notes], { type: 'text/plain;charset=utf-8' });
+            const ta = document.createElement('a');
+            ta.href = URL.createObjectURL(tb);
+            ta.download = 'fingering-notes.txt';
+            document.body.appendChild(ta);
+            ta.click();
+            ta.remove();
+            setTimeout(() => URL.revokeObjectURL(ta.href), 1000);
           };
           img.src = url;
         });
+      }
+
+      // Text Imput モーダル制御
+      if (textBtn instanceof HTMLButtonElement) {
+        textBtn.addEventListener('click', openTextModal);
+      }
+      if (textCloseBtn instanceof HTMLButtonElement) {
+        textCloseBtn.addEventListener('click', () => {
+          saveText();
+          closeTextModal();
+        });
+      }
+      if (textModal instanceof HTMLElement) {
+        // 背景クリックで閉じる
+        textModal.addEventListener('click', (e) => {
+          const t = e.target;
+          if (t instanceof HTMLElement && t.dataset.close === 'true') {
+            saveText();
+            closeTextModal();
+          }
+        });
+      }
+      if (textArea instanceof HTMLTextAreaElement) {
+        textArea.addEventListener('input', saveText);
       }
     })
     .catch((err) => {
