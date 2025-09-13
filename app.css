@@ -44,6 +44,25 @@ body {
   justify-content: space-between;
 }
 
+/* SVG直下の常設メモ入力欄 */
+#inline-notes {
+  width: min(720px, 92vw);
+  margin: 12px auto 0;
+}
+#inline-text-area {
+  width: 100%;
+  min-height: 200px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-sizing: border-box;
+  background: #fff;
+}
+
 .control-btn,
 #download-btn,
 #text-btn,

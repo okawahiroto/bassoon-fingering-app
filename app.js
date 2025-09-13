@@ -16,6 +16,7 @@
   const textBtn = document.getElementById('text-btn');
   const textModal = document.getElementById('text-modal');
   const textArea = document.getElementById('text-area');
+  const inlineTextArea = document.getElementById('inline-text-area');
   const textCloseBtn = document.getElementById('text-close-btn');
   const textDeleteBtn = document.getElementById('text-delete-btn');
   if (!wrapper) return;
@@ -48,12 +49,19 @@
     if (!(textModal instanceof HTMLElement)) return;
     textModal.hidden = true;
   }
-  function saveText() {
-    if (!(textArea instanceof HTMLTextAreaElement)) return;
+  function saveTextValue(val) {
     try {
-      localStorage.setItem(TEXT_KEY, textArea.value || '');
+      localStorage.setItem(TEXT_KEY, val || '');
     } catch (e) {
       // ignore
+    }
+  }
+  function syncAllTextAreas(val) {
+    if (textArea instanceof HTMLTextAreaElement) {
+      textArea.value = val;
+    }
+    if (inlineTextArea instanceof HTMLTextAreaElement) {
+      inlineTextArea.value = val;
     }
   }
   function getSavedText() {
@@ -71,6 +79,10 @@
       const svg = wrapper.querySelector('svg');
       if (!svg) return;
       svg.id = 'bassoonSvg';
+
+      // 初期表示で保存済みメモを適用
+      const initialNotes = getSavedText();
+      syncAllTextAreas(initialNotes);
 
       svg.addEventListener('click', (ev) => {
         const target = ev.target;
@@ -187,13 +199,31 @@
         });
       }
       if (textArea instanceof HTMLTextAreaElement) {
-        textArea.addEventListener('input', saveText);
+        textArea.addEventListener('input', () => {
+          const val = textArea.value || '';
+          saveTextValue(val);
+          if (inlineTextArea instanceof HTMLTextAreaElement) {
+            inlineTextArea.value = val;
+          }
+        });
+      }
+      if (inlineTextArea instanceof HTMLTextAreaElement) {
+        inlineTextArea.addEventListener('input', () => {
+          const val = inlineTextArea.value || '';
+          saveTextValue(val);
+          if (textArea instanceof HTMLTextAreaElement) {
+            textArea.value = val;
+          }
+        });
       }
       if (textDeleteBtn instanceof HTMLButtonElement) {
         textDeleteBtn.addEventListener('click', () => {
           // テキストエリアをクリアし、LocalStorageからも削除
           if (textArea instanceof HTMLTextAreaElement) {
             textArea.value = '';
+          }
+          if (inlineTextArea instanceof HTMLTextAreaElement) {
+            inlineTextArea.value = '';
           }
           try {
             localStorage.removeItem(TEXT_KEY);

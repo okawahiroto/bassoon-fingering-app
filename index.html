@@ -9,8 +9,12 @@
   <body>
     <!-- バスーンキーのSVGはランタイムで読み込み・インライン挿入 -->
     <div id="bassoon-wrapper" data-src="picture/bassoon_key.svg" aria-label="バスーンキー SVG"></div>
+    <!-- SVG直下の常設メモ入力欄 -->
+    <div id="inline-notes">
+      <textarea id="inline-text-area" aria-label="Notes" placeholder="ここにメモや運指の注記を書いてください"></textarea>
+    </div>
     <div id="controls">
-      <button id="text-btn" type="button" aria-haspopup="dialog" aria-controls="text-modal" aria-label="テキスト入力モーダルを開く">Text Imput</button>
+      <button id="text-btn" type="button" aria-haspopup="dialog" aria-controls="text-modal" aria-label="テキスト入力モーダルを開く">Memo</button>
       <button id="download-btn" type="button" disabled aria-label="運指図を画像としてダウンロード">Fingering Download</button>
     </div>
     <!-- テキスト入力モーダル -->
@@ -18,7 +22,7 @@
       <div class="modal-backdrop" data-close="true"></div>
       <div class="modal-dialog" role="document">
         <div class="modal-header">
-          <h2 id="text-modal-title">Notes</h2>
+          <h2 id="text-modal-title">Memo</h2>
           <div class="modal-actions">
             <button id="text-delete-btn" type="button" aria-label="テキストを削除">Delete</button>
             <button id="text-close-btn" type="button" aria-label="モーダルを閉じる">Close</button>
