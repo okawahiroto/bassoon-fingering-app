@@ -1,11 +1,26 @@
 (function () {
   const circle = document.getElementById('circle');
   if (circle) {
-    const fills = ['black', 'red', 'white'];
-    let index = -1;
+    const colorSeq = ['black', 'red', 'blue'];
     circle.addEventListener('click', () => {
-      index = (index + 1) % fills.length;
-      circle.setAttribute('fill', fills[index]);
+      const raw = circle.getAttribute('data-color-index');
+      if (raw == null) {
+        // none -> black
+        circle.setAttribute('fill', colorSeq[0]);
+        circle.setAttribute('data-color-index', '0');
+      } else {
+        let idx = parseInt(raw, 10);
+        if (Number.isNaN(idx)) idx = -1;
+        if (idx >= 0 && idx < colorSeq.length - 1) {
+          idx += 1;
+          circle.setAttribute('fill', colorSeq[idx]);
+          circle.setAttribute('data-color-index', String(idx));
+        } else {
+          // last -> none
+          circle.setAttribute('fill', 'transparent');
+          circle.removeAttribute('data-color-index');
+        }
+      }
     });
   }
 })();
@@ -24,16 +39,28 @@
   const src = wrapper.getAttribute('data-src');
   if (!src) return;
 
-  const colors = ['black', 'red', 'white'];
+  const colors = ['black', 'red', 'blue'];
   const TEXT_KEY = 'fingering_text';
 
   function cycleElementColor(el) {
     const raw = el.getAttribute('data-color-index');
-    let idx = raw ? parseInt(raw, 10) : -1;
-    idx = (idx + 1) % colors.length;
-    // 図形の内側がクリック対象なので、常にfillを変更
-    el.setAttribute('fill', colors[idx]);
-    el.setAttribute('data-color-index', String(idx));
+    if (raw == null) {
+      // none -> first color (black)
+      el.setAttribute('fill', colors[0]);
+      el.setAttribute('data-color-index', '0');
+      return;
+    }
+    let idx = parseInt(raw, 10);
+    if (!Number.isFinite(idx)) idx = -1;
+    if (idx >= 0 && idx < colors.length - 1) {
+      idx += 1;
+      el.setAttribute('fill', colors[idx]);
+      el.setAttribute('data-color-index', String(idx));
+    } else {
+      // last color -> none (transparent to keep hit area)
+      el.setAttribute('fill', 'transparent');
+      el.removeAttribute('data-color-index');
+    }
   }
 
   // --- テキストモーダルとLocalStorage ---

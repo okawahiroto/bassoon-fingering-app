@@ -41,9 +41,9 @@ body {
   width: min(720px, 92vw);
   margin: 12px auto 24px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 0;
+  justify-content: space-evenly;
 }
 
 /* SVG直下の常設メモ入力欄 */
@@ -90,7 +90,7 @@ body {
 #download-btn,
 #share-btn,
 #text-btn {
-  min-width: 200px;
+  min-width: 140px;
   text-align: center;
 }
 
