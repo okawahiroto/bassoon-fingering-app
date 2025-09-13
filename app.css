@@ -41,7 +41,9 @@ body {
   width: min(720px, 92vw);
   margin: 12px auto 24px;
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
 }
 
 /* SVG直下の常設メモ入力欄 */
@@ -51,7 +53,7 @@ body {
 }
 #inline-text-area {
   width: 100%;
-  min-height: 200px;
+  min-height: 120px;
   resize: vertical;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 14px;
@@ -88,7 +90,7 @@ body {
 #download-btn,
 #share-btn,
 #text-btn {
-  width: 200px;
+  min-width: 200px;
   text-align: center;
 }
 
@@ -128,7 +130,7 @@ body {
 }
 #text-area {
   width: 100%;
-  min-height: 240px;
+  min-height: 120px;
   resize: vertical;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 14px;

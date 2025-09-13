@@ -114,13 +114,16 @@
             // メモのテキストも同時にダウンロード
             const notes = getSavedText();
             const tb = new Blob([notes], { type: 'text/plain;charset=utf-8' });
-            const ta = document.createElement('a');
-            ta.href = URL.createObjectURL(tb);
-            ta.download = 'fingering-notes.txt';
-            document.body.appendChild(ta);
-            ta.click();
-            ta.remove();
-            setTimeout(() => URL.revokeObjectURL(ta.href), 1000);
+            // モバイルでの連続DL安定のため少し遅らせる
+            setTimeout(() => {
+              const ta = document.createElement('a');
+              ta.href = URL.createObjectURL(tb);
+              ta.download = 'fingering-notes.txt';
+              document.body.appendChild(ta);
+              ta.click();
+              ta.remove();
+              setTimeout(() => URL.revokeObjectURL(ta.href), 1000);
+            }, 500);
           }).catch(() => {
             // PNG化に失敗したらSVGをダウンロード
             const serializer = new XMLSerializer();
@@ -159,21 +162,24 @@
         shareBtn.addEventListener('click', async () => {
           const currentSvg = document.getElementById('bassoonSvg');
           if (!currentSvg) return;
-          const notes = getSavedText();
+          const notes = (getSavedText() || '').trim();
+          const tag = '#BsnFingApp';
+          const hasTag = new RegExp('(^|\\s)'+tag.replace('#','\\#')+'(\\s|$)').test(notes);
+          const shareText = hasTag ? notes : (notes ? notes + '\n' + tag : tag);
           try {
             const blob = await exportSvgToPngBlob(currentSvg);
             if (!blob) throw new Error('png blob failed');
             const file = new File([blob], 'fingering.png', { type: 'image/png' });
             if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
-              await navigator.share({ files: [file], text: notes, title: 'Bassoon Fingering' });
+              await navigator.share({ files: [file], text: shareText });
               return;
             }
             if (navigator.share) {
-              await navigator.share({ text: notes, title: 'Bassoon Fingering', url: location.href });
+              await navigator.share({ text: shareText });
               return;
             }
             // フォールバック: テキストをクリップボード、画像は自動ダウンロード
-            try { await navigator.clipboard.writeText(notes); } catch {}
+            try { await navigator.clipboard.writeText(shareText); } catch {}
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = 'fingering.png';
@@ -181,12 +187,14 @@
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-            alert('お使いの環境では画像付き共有に対応していません。画像をダウンロードしました。メモはクリップボードにコピー済みです。SNSアプリで貼り付けて投稿してください。');
+            alert('お使いの環境では画像付き共有に対応していません。画像をダウンロードしました。テキストはクリップボードにコピー済みです。');
           } catch (e) {
             alert('共有に失敗しました。ダウンロード機能をご利用ください。');
           }
         });
       }
+
+      // Share to X/Copy Image ボタンは廃止（Shareのみ使用）
 
       // Text Imput モーダル制御
       if (textBtn instanceof HTMLButtonElement) {
@@ -298,3 +306,5 @@ function exportSvgToPngBlob(currentSvg) {
     }
   });
 }
+
+// (iOS専用のDataURLフォールバック、およびUA判定は撤去し標準動作に戻しています)
