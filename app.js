@@ -17,6 +17,7 @@
   const textModal = document.getElementById('text-modal');
   const textArea = document.getElementById('text-area');
   const textCloseBtn = document.getElementById('text-close-btn');
+  const textDeleteBtn = document.getElementById('text-delete-btn');
   if (!wrapper) return;
   const src = wrapper.getAttribute('data-src');
   if (!src) return;
@@ -187,6 +188,20 @@
       }
       if (textArea instanceof HTMLTextAreaElement) {
         textArea.addEventListener('input', saveText);
+      }
+      if (textDeleteBtn instanceof HTMLButtonElement) {
+        textDeleteBtn.addEventListener('click', () => {
+          // テキストエリアをクリアし、LocalStorageからも削除
+          if (textArea instanceof HTMLTextAreaElement) {
+            textArea.value = '';
+          }
+          try {
+            localStorage.removeItem(TEXT_KEY);
+          } catch {}
+          if (textArea instanceof HTMLTextAreaElement) {
+            textArea.focus();
+          }
+        });
       }
     })
     .catch((err) => {

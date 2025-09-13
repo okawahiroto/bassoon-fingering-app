@@ -101,6 +101,7 @@ body {
   padding: 12px 16px;
   border-bottom: 1px solid #eee;
 }
+.modal-actions { display: flex; gap: 8px; align-items: center; }
 .modal-body {
   padding: 12px 16px 16px;
 }
@@ -115,4 +116,18 @@ body {
   border: 1px solid #ddd;
   border-radius: 8px;
   box-sizing: border-box;
+}
+
+/* モーダルのボタンも同じ見た目に */
+#text-delete-btn,
+#text-close-btn {
+  appearance: none;
+  border: 1px solid #d0d0d0;
+  background: white;
+  color: #222;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
 }
