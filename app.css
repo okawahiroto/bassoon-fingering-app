@@ -65,6 +65,7 @@ body {
 
 .control-btn,
 #download-btn,
+#share-btn,
 #text-btn,
 #text-close-btn {
   appearance: none;
@@ -85,6 +86,7 @@ body {
 
 /* 左右のボタンを同サイズにする */
 #download-btn,
+#share-btn,
 #text-btn {
   width: 200px;
   text-align: center;

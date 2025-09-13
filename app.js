@@ -13,6 +13,7 @@
 (function () {
   const wrapper = document.getElementById('bassoon-wrapper');
   const downloadBtn = document.getElementById('download-btn');
+  const shareBtn = document.getElementById('share-btn');
   const textBtn = document.getElementById('text-btn');
   const textModal = document.getElementById('text-modal');
   const textArea = document.getElementById('text-area');
@@ -100,70 +101,17 @@
           const currentSvg = document.getElementById('bassoonSvg');
           if (!currentSvg) return;
 
-          // 表示サイズに合わせてPNGを書き出す
-          const rect = currentSvg.getBoundingClientRect();
-          const width = Math.max(1, Math.round(rect.width));
-          const height = Math.max(1, Math.round(rect.height));
-
-          const serializer = new XMLSerializer();
-          let svgString = serializer.serializeToString(currentSvg);
-
-          // XML宣言が無い場合の互換性確保（任意）
-          if (!/^<\?xml/.test(svgString)) {
-            svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + svgString;
-          }
-
-          const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-          const url = URL.createObjectURL(svgBlob);
-
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-            // 背景を白で塗りつぶしてから描画（透過防止）
-            ctx.clearRect(0, 0, width, height);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, width, height);
-            ctx.drawImage(img, 0, 0, width, height);
-            URL.revokeObjectURL(url);
-
-            canvas.toBlob((blob) => {
-              if (!blob) return;
-              const a = document.createElement('a');
-              a.href = URL.createObjectURL(blob);
-              a.download = 'fingering.png';
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-              setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-
-              // メモのテキストも同時にダウンロード
-              const notes = getSavedText();
-              const tb = new Blob([notes], { type: 'text/plain;charset=utf-8' });
-              const ta = document.createElement('a');
-              ta.href = URL.createObjectURL(tb);
-              ta.download = 'fingering-notes.txt';
-              document.body.appendChild(ta);
-              ta.click();
-              ta.remove();
-              setTimeout(() => URL.revokeObjectURL(ta.href), 1000);
-            }, 'image/png');
-          };
-          img.onerror = () => {
-            // 万一PNG化に失敗したら生のSVGをダウンロード
-            URL.revokeObjectURL(url);
+          exportSvgToPngBlob(currentSvg).then((blob) => {
+            if (!blob) return;
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(svgBlob);
-            a.download = 'fingering.svg';
+            a.href = URL.createObjectURL(blob);
+            a.download = 'fingering.png';
             document.body.appendChild(a);
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 
-            // 失敗時もテキストはダウンロード
+            // メモのテキストも同時にダウンロード
             const notes = getSavedText();
             const tb = new Blob([notes], { type: 'text/plain;charset=utf-8' });
             const ta = document.createElement('a');
@@ -173,8 +121,70 @@
             ta.click();
             ta.remove();
             setTimeout(() => URL.revokeObjectURL(ta.href), 1000);
-          };
-          img.src = url;
+          }).catch(() => {
+            // PNG化に失敗したらSVGをダウンロード
+            const serializer = new XMLSerializer();
+            const currentSvg2 = document.getElementById('bassoonSvg');
+            if (!currentSvg2) return;
+            let svgString = serializer.serializeToString(currentSvg2);
+            if (!/^<\?xml/.test(svgString)) {
+              svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + svgString;
+            }
+            const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(svgBlob);
+            a.download = 'fingering.svg';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+
+            // テキストはダウンロード
+            const notes = getSavedText();
+            const tb = new Blob([notes], { type: 'text/plain;charset=utf-8' });
+            const ta = document.createElement('a');
+            ta.href = URL.createObjectURL(tb);
+            ta.download = 'fingering-notes.txt';
+            document.body.appendChild(ta);
+            ta.click();
+            ta.remove();
+            setTimeout(() => URL.revokeObjectURL(ta.href), 1000);
+          });
+        });
+      }
+
+      // Shareボタン
+      if (shareBtn instanceof HTMLButtonElement) {
+        shareBtn.disabled = false;
+        shareBtn.addEventListener('click', async () => {
+          const currentSvg = document.getElementById('bassoonSvg');
+          if (!currentSvg) return;
+          const notes = getSavedText();
+          try {
+            const blob = await exportSvgToPngBlob(currentSvg);
+            if (!blob) throw new Error('png blob failed');
+            const file = new File([blob], 'fingering.png', { type: 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+              await navigator.share({ files: [file], text: notes, title: 'Bassoon Fingering' });
+              return;
+            }
+            if (navigator.share) {
+              await navigator.share({ text: notes, title: 'Bassoon Fingering', url: location.href });
+              return;
+            }
+            // フォールバック: テキストをクリップボード、画像は自動ダウンロード
+            try { await navigator.clipboard.writeText(notes); } catch {}
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'fingering.png';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+            alert('お使いの環境では画像付き共有に対応していません。画像をダウンロードしました。メモはクリップボードにコピー済みです。SNSアプリで貼り付けて投稿してください。');
+          } catch (e) {
+            alert('共有に失敗しました。ダウンロード機能をご利用ください。');
+          }
         });
       }
 
@@ -247,3 +257,44 @@
       wrapper.textContent = 'SVGの読み込みに失敗しました。';
     });
 })();
+
+// SVG -> PNG Blob 変換
+function exportSvgToPngBlob(currentSvg) {
+  return new Promise((resolve, reject) => {
+    try {
+      const rect = currentSvg.getBoundingClientRect();
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+
+      const serializer = new XMLSerializer();
+      let svgString = serializer.serializeToString(currentSvg);
+      if (!/^<\?xml/.test(svgString)) {
+        svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + svgString;
+      }
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { URL.revokeObjectURL(url); reject(new Error('no ctx')); return; }
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob) => {
+          if (!blob) { reject(new Error('no blob')); return; }
+          resolve(blob);
+        }, 'image/png');
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img error')); };
+      img.src = url;
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
