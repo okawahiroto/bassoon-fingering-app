@@ -184,7 +184,11 @@
       }
       if (textCloseBtn instanceof HTMLButtonElement) {
         textCloseBtn.addEventListener('click', () => {
-          saveText();
+          if (textArea instanceof HTMLTextAreaElement) {
+            saveTextValue(textArea.value || '');
+          } else if (inlineTextArea instanceof HTMLTextAreaElement) {
+            saveTextValue(inlineTextArea.value || '');
+          }
           closeTextModal();
         });
       }
@@ -193,7 +197,11 @@
         textModal.addEventListener('click', (e) => {
           const t = e.target;
           if (t instanceof HTMLElement && t.dataset.close === 'true') {
-            saveText();
+            if (textArea instanceof HTMLTextAreaElement) {
+              saveTextValue(textArea.value || '');
+            } else if (inlineTextArea instanceof HTMLTextAreaElement) {
+              saveTextValue(inlineTextArea.value || '');
+            }
             closeTextModal();
           }
         });
