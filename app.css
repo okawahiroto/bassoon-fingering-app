@@ -39,6 +39,33 @@ body {
   height: 100%; /* アスペクト比はSVG側で保持される */
 }
 
+/* 音名と楽譜コントロール */
+#note-controls {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 4px 0 0;
+}
+#note-controls label { font-size: 14px; color: #333; }
+#note-controls .checkbox { display: inline-flex; align-items: center; gap: 6px; }
+#note-input {
+  flex: 1 1 auto;
+  min-width: 140px;
+  max-width: 320px;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+#note-controls .help {
+  width: 100%;
+  font-size: 12px;
+  color: #666;
+}
+
 /* 図形の内側のみクリック可能にする */
 #bassoon-wrapper path,
 #bassoon-wrapper rect,

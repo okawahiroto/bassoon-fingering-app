@@ -35,12 +35,16 @@
   const inlineTextArea = document.getElementById('inline-text-area');
   const textCloseBtn = document.getElementById('text-close-btn');
   const textDeleteBtn = document.getElementById('text-delete-btn');
+  const noteInput = document.getElementById('note-input');
+  const includeScoreCheckbox = document.getElementById('include-score');
   if (!wrapper) return;
   const src = wrapper.getAttribute('data-src');
   if (!src) return;
 
   const colors = ['black', 'red', 'blue'];
   const TEXT_KEY = 'fingering_text';
+  const NOTE_KEY = 'fingering_note_text';
+  const INCLUDE_SCORE_KEY = 'fingering_include_score';
 
   function cycleElementColor(el) {
     const raw = el.getAttribute('data-color-index');
@@ -100,6 +104,19 @@
     }
   }
 
+  function getSavedNote() {
+    try { return localStorage.getItem(NOTE_KEY) || ''; } catch { return ''; }
+  }
+  function setSavedNote(v) {
+    try { localStorage.setItem(NOTE_KEY, v || ''); } catch {}
+  }
+  function getSavedIncludeScore() {
+    try { return localStorage.getItem(INCLUDE_SCORE_KEY) !== '0'; } catch { return true; }
+  }
+  function setSavedIncludeScore(flag) {
+    try { localStorage.setItem(INCLUDE_SCORE_KEY, flag ? '1' : '0'); } catch {}
+  }
+
   fetch(src)
     .then((res) => res.text())
     .then((svgText) => {
@@ -122,6 +139,25 @@
           cycleElementColor(shape);
         }
       });
+
+      // 楽譜（左下オーバーレイ）初期化とイベント
+      if (noteInput instanceof HTMLInputElement) {
+        const savedNote = getSavedNote();
+        if (savedNote) noteInput.value = savedNote;
+        noteInput.addEventListener('input', () => {
+          setSavedNote(noteInput.value || '');
+          updateScoreSvg(svg);
+        });
+      }
+      if (includeScoreCheckbox instanceof HTMLInputElement) {
+        includeScoreCheckbox.checked = getSavedIncludeScore();
+        includeScoreCheckbox.addEventListener('change', () => {
+          setSavedIncludeScore(!!includeScoreCheckbox.checked);
+          updateScoreSvg(svg);
+        });
+      }
+      // 初回描画
+      updateScoreSvg(svg);
 
       // ダウンロードボタンを有効化
       if (downloadBtn instanceof HTMLButtonElement) {
@@ -284,6 +320,7 @@ function exportSvgToPngBlob(currentSvg) {
         ctx.clearRect(0, 0, width, height);
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, width, height);
+        // ヘッダー合成は行わず、SVG内の見た目そのままを書き出す
         ctx.drawImage(img, 0, 0, width, height);
         URL.revokeObjectURL(url);
         canvas.toBlob((blob) => {
@@ -298,5 +335,120 @@ function exportSvgToPngBlob(currentSvg) {
     }
   });
 }
-
 // (iOS専用のDataURLフォールバック、およびUA判定は撤去し標準動作に戻しています)
+
+// 文字列の音名を簡易パース（例: C4, F#3, Eb3, G♭2）
+function parseNoteText(s) {
+  if (!s) return null;
+  const m = s.trim().match(/^([A-Ga-g])([#♯b♭]?)(\d)$/);
+  if (!m) return null;
+  const letter = m[1].toUpperCase();
+  const accRaw = m[2] || '';
+  const octave = parseInt(m[3], 10);
+  const accidental = accRaw === '♯' ? '#' : accRaw === '♭' ? 'b' : accRaw;
+  const letterIndexMap = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
+  const diatonicIndex = octave * 7 + letterIndexMap[letter];
+  const refDiatonic = (3 * 7) + letterIndexMap['D']; // D3 を基準
+  const step = diatonicIndex - refDiatonic;
+  return { letter, accidental, octave, step };
+}
+
+// SVG左下に五線と音符を重ね描画（非破壊／クリック非阻害）
+function updateScoreSvg(svg) {
+  const noteTextEl = document.getElementById('note-input');
+  const includeScoreEl = document.getElementById('include-score');
+  const noteText = noteTextEl instanceof HTMLInputElement ? (noteTextEl.value || '').trim() : '';
+  const includeScore = includeScoreEl instanceof HTMLInputElement ? !!includeScoreEl.checked : false;
+
+  let g = svg.querySelector('#score-overlay');
+  if (!g) {
+    g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('id', 'score-overlay');
+    g.setAttribute('style', 'pointer-events:none');
+    svg.appendChild(g);
+  }
+  while (g.firstChild) g.removeChild(g.firstChild);
+
+  if (!includeScore) return; // 非表示なら何も描かない
+
+  const parsed = parseNoteText(noteText);
+
+  const dims = getSvgDimensions(svg);
+  const svgW = dims.width, svgH = dims.height;
+  const padLeft = 16, padBottom = 16;
+  const staffWidth = Math.min(260, Math.max(180, svgW * 0.35));
+  const gap = 16; // 線間
+  const centerY = svgH - padBottom - (gap * 2) - 8; // D3基準
+  const left = padLeft;
+
+  // 五線 5本
+  for (let i = -4; i <= 4; i += 2) {
+    const y = centerY - (i * (gap / 2));
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', String(left));
+    line.setAttribute('x2', String(left + staffWidth));
+    line.setAttribute('y1', String(y));
+    line.setAttribute('y2', String(y));
+    line.setAttribute('stroke', '#333');
+    line.setAttribute('stroke-width', '1.5');
+    g.appendChild(line);
+  }
+
+  // 音符（有効な音名がある場合のみ）
+  if (parsed) {
+    const x = left + Math.floor(staffWidth / 2);
+    const y = centerY - (parsed.step * (gap / 2));
+
+    if (parsed.accidental) {
+      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      t.setAttribute('x', String(x - 22));
+      t.setAttribute('y', String(y + 5));
+      t.setAttribute('font-family', 'Georgia, serif');
+      t.setAttribute('font-size', '18');
+      t.setAttribute('fill', '#111');
+      t.textContent = parsed.accidental === '#' ? '♯' : '♭';
+      g.appendChild(t);
+    }
+
+    const ell = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+    ell.setAttribute('cx', String(x));
+    ell.setAttribute('cy', String(y));
+    ell.setAttribute('rx', '8');
+    ell.setAttribute('ry', '6');
+    ell.setAttribute('fill', '#111');
+    ell.setAttribute('transform', `rotate(-15 ${x} ${y})`);
+    g.appendChild(ell);
+
+    // 加線
+    if (Math.abs(parsed.step) > 4) {
+      const dir = parsed.step > 0 ? 1 : -1;
+      for (let s = dir * 6; Math.abs(s) <= Math.abs(parsed.step); s += dir * 2) {
+        const ly = centerY - (s * (gap / 2));
+        const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        l.setAttribute('x1', String(x - 16));
+        l.setAttribute('x2', String(x + 16));
+        l.setAttribute('y1', String(ly));
+        l.setAttribute('y2', String(ly));
+        l.setAttribute('stroke', '#333');
+        l.setAttribute('stroke-width', '1.5');
+        g.appendChild(l);
+      }
+    }
+  }
+}
+
+function getSvgDimensions(svg) {
+  const vb = svg.viewBox && svg.viewBox.baseVal;
+  if (vb && vb.width && vb.height) return { width: vb.width, height: vb.height };
+  const wAttr = svg.getAttribute('width');
+  const hAttr = svg.getAttribute('height');
+  const w = wAttr ? parseFloat(wAttr) : NaN;
+  const h = hAttr ? parseFloat(hAttr) : NaN;
+  if (Number.isFinite(w) && Number.isFinite(h)) return { width: w, height: h };
+  try {
+    const bb = svg.getBBox();
+    return { width: bb.width, height: bb.height };
+  } catch {
+    return { width: 600, height: 800 };
+  }
+}
