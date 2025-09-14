@@ -1,21 +1,3 @@
-// 画面高に合わせてメインコンテンツを等比縮小
-function fitContentToViewport() {
-  const root = document.getElementById('page-content');
-  if (!(root instanceof HTMLElement)) return;
-  // テキスト入力中はスケール変更しない（ソフトキーボード対策）
-  const ae = document.activeElement;
-  if (ae && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT'))) return;
-
-  // いったんリセットして実寸を測る
-  root.style.transform = 'none';
-
-  const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-  const margin = 12; // 上下の余白
-  const contentRect = root.getBoundingClientRect();
-  const scale = Math.min(1, (vh - margin) / Math.max(contentRect.height, 1));
-  root.style.transform = `scale(${scale})`;
-}
-
 (function () {
   const circle = document.getElementById('circle');
   if (circle) {
@@ -126,8 +108,7 @@ function fitContentToViewport() {
       if (!svg) return;
       svg.id = 'bassoonSvg';
 
-      // 初回レイアウトで画面内に収める
-      fitContentToViewport();
+      // 純CSSレイアウトにより高さ調整（JSは不要）
 
       // 初期表示で保存済みメモを適用
       const initialNotes = getSavedText();
@@ -148,59 +129,22 @@ function fitContentToViewport() {
         downloadBtn.addEventListener('click', () => {
           const currentSvg = document.getElementById('bassoonSvg');
           if (!currentSvg) return;
-
-          exportSvgToPngBlob(currentSvg).then((blob) => {
-            if (!blob) return;
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'fingering.png';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-
-            // メモのテキストも同時にダウンロード
-            const notes = getSavedText();
-            const tb = new Blob([notes], { type: 'text/plain;charset=utf-8' });
-            // モバイルでの連続DL安定のため少し遅らせる
-            setTimeout(() => {
-              const ta = document.createElement('a');
-              ta.href = URL.createObjectURL(tb);
-              ta.download = 'fingering-notes.txt';
-              document.body.appendChild(ta);
-              ta.click();
-              ta.remove();
-              setTimeout(() => URL.revokeObjectURL(ta.href), 1000);
-            }, 500);
-          }).catch(() => {
-            // PNG化に失敗したらSVGをダウンロード
-            const serializer = new XMLSerializer();
-            const currentSvg2 = document.getElementById('bassoonSvg');
-            if (!currentSvg2) return;
-            let svgString = serializer.serializeToString(currentSvg2);
-            if (!/^<\?xml/.test(svgString)) {
-              svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + svgString;
-            }
-            const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(svgBlob);
-            a.download = 'fingering.svg';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-
-            // テキストはダウンロード
-            const notes = getSavedText();
-            const tb = new Blob([notes], { type: 'text/plain;charset=utf-8' });
-            const ta = document.createElement('a');
-            ta.href = URL.createObjectURL(tb);
-            ta.download = 'fingering-notes.txt';
-            document.body.appendChild(ta);
-            ta.click();
-            ta.remove();
-            setTimeout(() => URL.revokeObjectURL(ta.href), 1000);
-          });
+          exportSvgToPngBlob(currentSvg)
+            .then((blob) => {
+              if (!blob) return;
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = 'fingering.png';
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+              // 成功メッセージ（画像のみDL）
+              try { alert('画像のみダウンロードしました'); } catch {}
+            })
+            .catch(() => {
+              alert('画像の作成に失敗しました。もう一度お試しください。');
+            });
         });
       }
 
@@ -356,14 +300,3 @@ function exportSvgToPngBlob(currentSvg) {
 }
 
 // (iOS専用のDataURLフォールバック、およびUA判定は撤去し標準動作に戻しています)
-
-// リサイズや向き変更で再フィット
-window.addEventListener('resize', () => {
-  // visualViewport対応ブラウザならそのイベントも拾う
-  fitContentToViewport();
-});
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', fitContentToViewport);
-}
-window.addEventListener('orientationchange', fitContentToViewport);
-window.addEventListener('load', fitContentToViewport);
