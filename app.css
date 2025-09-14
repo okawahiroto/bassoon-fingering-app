@@ -7,6 +7,12 @@ body {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
 }
 
+/* 画面全体に収めるためのスケーリング対象 */
+#page-content {
+  transform-origin: top center;
+  will-change: transform;
+}
+
 /* 円は塗り部分のみクリック可能・ポインター表示 */
 #circle {
   cursor: pointer;
@@ -153,4 +159,15 @@ body {
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
+}
+
+/* モバイルや低い画面では余白・サイズを圧縮 */
+@media (max-width: 480px), (max-height: 720px) {
+  #bassoon-wrapper { margin-top: 12px; }
+  #inline-notes { margin-top: 8px; }
+  #controls { margin: 8px auto 12px; }
+  #download-btn,
+  #share-btn,
+  #text-btn { min-width: 120px; padding: 8px 10px; font-size: 13px; }
+  #inline-text-area { min-height: 96px; font-size: 13px; }
 }

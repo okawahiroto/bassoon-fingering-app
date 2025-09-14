@@ -1,3 +1,21 @@
+// 画面高に合わせてメインコンテンツを等比縮小
+function fitContentToViewport() {
+  const root = document.getElementById('page-content');
+  if (!(root instanceof HTMLElement)) return;
+  // テキスト入力中はスケール変更しない（ソフトキーボード対策）
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT'))) return;
+
+  // いったんリセットして実寸を測る
+  root.style.transform = 'none';
+
+  const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  const margin = 12; // 上下の余白
+  const contentRect = root.getBoundingClientRect();
+  const scale = Math.min(1, (vh - margin) / Math.max(contentRect.height, 1));
+  root.style.transform = `scale(${scale})`;
+}
+
 (function () {
   const circle = document.getElementById('circle');
   if (circle) {
@@ -107,6 +125,9 @@
       const svg = wrapper.querySelector('svg');
       if (!svg) return;
       svg.id = 'bassoonSvg';
+
+      // 初回レイアウトで画面内に収める
+      fitContentToViewport();
 
       // 初期表示で保存済みメモを適用
       const initialNotes = getSavedText();
@@ -335,3 +356,14 @@ function exportSvgToPngBlob(currentSvg) {
 }
 
 // (iOS専用のDataURLフォールバック、およびUA判定は撤去し標準動作に戻しています)
+
+// リサイズや向き変更で再フィット
+window.addEventListener('resize', () => {
+  // visualViewport対応ブラウザならそのイベントも拾う
+  fitContentToViewport();
+});
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', fitContentToViewport);
+}
+window.addEventListener('orientationchange', fitContentToViewport);
+window.addEventListener('load', fitContentToViewport);

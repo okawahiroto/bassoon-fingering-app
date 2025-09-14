@@ -7,15 +7,17 @@
     <link rel="stylesheet" href="app.css" />
   </head>
   <body>
-    <!-- バスーンキーのSVGはランタイムで読み込み・インライン挿入 -->
-    <div id="bassoon-wrapper" data-src="picture/bassoon_key.svg" aria-label="バスーンキー SVG"></div>
-    <!-- SVG直下の常設メモ入力欄 -->
-    <div id="inline-notes">
-      <textarea id="inline-text-area" aria-label="Notes" placeholder="ここにメモや運指の注記を書いてください" rows="4"></textarea>
-    </div>
-    <div id="controls">
-      <button id="download-btn" type="button" disabled aria-label="運指図を画像としてダウンロード">Download</button>
-      <button id="share-btn" type="button" disabled aria-label="SNSに画像とメモを共有">Share</button>
+    <div id="page-content" aria-label="アプリ本体">
+      <!-- バスーンキーのSVGはランタイムで読み込み・インライン挿入 -->
+      <div id="bassoon-wrapper" data-src="picture/bassoon_key.svg" aria-label="バスーンキー SVG"></div>
+      <!-- SVG直下の常設メモ入力欄 -->
+      <div id="inline-notes">
+        <textarea id="inline-text-area" aria-label="Notes" placeholder="ここにメモや運指の注記を書いてください" rows="4"></textarea>
+      </div>
+      <div id="controls">
+        <button id="download-btn" type="button" disabled aria-label="運指図を画像としてダウンロード">Download</button>
+        <button id="share-btn" type="button" disabled aria-label="SNSに画像とメモを共有">Share</button>
+      </div>
     </div>
     <!-- テキスト入力モーダル -->
     <div id="text-modal" role="dialog" aria-modal="true" aria-labelledby="text-modal-title" hidden>
