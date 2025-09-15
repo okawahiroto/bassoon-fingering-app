@@ -52,7 +52,9 @@ body {
 #note-controls .checkbox { display: inline-flex; align-items: center; gap: 6px; }
 #note-input,
 #octave-select,
-#note-select {
+#note-select,
+#trill-octave-select,
+#trill-note-select {
   flex: 1 1 auto;
   min-width: 140px;
   max-width: 320px;
@@ -70,6 +72,17 @@ body {
   flex: 0 0 auto;
 }
 #note-select {
+  max-width: 80px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+/* Trill用セレクトにも同じ制限を適用 */
+#trill-octave-select {
+  max-width: 60px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+#trill-note-select {
   max-width: 80px;
   min-width: 0;
   flex: 0 0 auto;

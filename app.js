@@ -37,6 +37,9 @@
   const textDeleteBtn = document.getElementById('text-delete-btn');
   const octaveSelect = document.getElementById('octave-select');
   const noteSelect = document.getElementById('note-select');
+  const trillEnabled = document.getElementById('trill-enabled');
+  const trillOctaveSelect = document.getElementById('trill-octave-select');
+  const trillNoteSelect = document.getElementById('trill-note-select');
   if (!wrapper) return;
   const src = wrapper.getAttribute('data-src');
   if (!src) return;
@@ -226,6 +229,68 @@
         };
         octaveSelect.addEventListener('change', onChange);
         noteSelect.addEventListener('change', onChange);
+      }
+
+      // Trill UI: チェックで活性化、C1時の選択制限は本体と同様に適用
+      const rebuildTrillNoteOptions = (oct) => {
+        if (!(trillNoteSelect instanceof HTMLSelectElement)) return;
+        const entriesAllDesc = [
+          { v: 11, label: 'B' },
+          { v: 10, label: 'A#/Bb' },
+          { v: 9, label: 'A' },
+          { v: 8, label: 'G#/Ab' },
+          { v: 7, label: 'G' },
+          { v: 6, label: 'F#/Gb' },
+          { v: 5, label: 'F' },
+          { v: 4, label: 'E' },
+          { v: 3, label: 'D#/Eb' },
+          { v: 2, label: 'D' },
+          { v: 1, label: 'C#/Db' },
+          { v: 0, label: 'C' },
+        ];
+        const entriesC1 = [
+          { v: 10, label: 'A#/Bb' },
+          { v: 11, label: 'B' },
+        ];
+        const current = parseInt((trillNoteSelect.value || '11'), 10);
+        const allowed = (oct === 1) ? entriesC1 : entriesAllDesc;
+        trillNoteSelect.innerHTML = '';
+        allowed.forEach(({ v, label }) => {
+          const opt = document.createElement('option');
+          opt.value = String(v);
+          opt.textContent = label;
+          trillNoteSelect.appendChild(opt);
+        });
+        const stillExists = allowed.some(({ v }) => v === current);
+        trillNoteSelect.value = stillExists ? String(current) : String(allowed[0].v);
+      };
+
+      if (trillEnabled instanceof HTMLInputElement &&
+          trillOctaveSelect instanceof HTMLSelectElement &&
+          trillNoteSelect instanceof HTMLSelectElement) {
+        // 初期状態は非活性のまま
+        trillOctaveSelect.disabled = !trillEnabled.checked;
+        trillNoteSelect.disabled = !trillEnabled.checked;
+        // 初期オプション構築
+        rebuildTrillNoteOptions(parseInt(trillOctaveSelect.value, 10) || 3);
+
+        trillEnabled.addEventListener('change', () => {
+          const enabled = !!trillEnabled.checked;
+          trillOctaveSelect.disabled = !enabled;
+          trillNoteSelect.disabled = !enabled;
+          if (enabled) {
+            rebuildTrillNoteOptions(parseInt(trillOctaveSelect.value, 10) || 3);
+          }
+          // トグル時にも即時再描画
+          updateScoreSvg(svg);
+        });
+        trillOctaveSelect.addEventListener('change', () => {
+          rebuildTrillNoteOptions(parseInt(trillOctaveSelect.value, 10) || 3);
+          updateScoreSvg(svg);
+        });
+        trillNoteSelect.addEventListener('change', () => {
+          updateScoreSvg(svg);
+        });
       }
       // 初回描画
       updateScoreSvg(svg);
@@ -444,6 +509,9 @@ function indexAndOctaveToText(index, octave) {
 function updateScoreSvg(svg) {
   const octaveEl = document.getElementById('octave-select');
   const noteEl = document.getElementById('note-select');
+  const trillEnabledEl = document.getElementById('trill-enabled');
+  const trillOctEl = document.getElementById('trill-octave-select');
+  const trillNoteEl = document.getElementById('trill-note-select');
 
   let g = svg.querySelector('#score-overlay');
   if (!g) {
@@ -555,9 +623,10 @@ function updateScoreSvg(svg) {
     const baseX = left + Math.floor(staffWidth * 0.55);
     const idx = index % 12;
     const isChromatic = [1,3,6,8,10].includes(idx);
+    const trillOn = (trillEnabledEl instanceof HTMLInputElement) ? !!trillEnabledEl.checked : false;
 
     const variants = isChromatic
-      ? [sharpPref[idx], flatPref[idx]]
+      ? (trillOn ? [sharpPref[idx]] : [sharpPref[idx], flatPref[idx]])
       : [sharpPref[idx]]; // 自然音は1つのみ
 
     variants.forEach((v, i) => {
@@ -569,7 +638,8 @@ function updateScoreSvg(svg) {
       const ledgerHalf = 18;
       const chromaticGap = 12; // 加線の中央の空き幅（px）
       const chromaticOffset = ledgerHalf + chromaticGap / 2; // = 24px
-      const x = baseX + (isChromatic ? (i === 0 ? -chromaticOffset : chromaticOffset) : 0);
+      const showTwo = isChromatic && !trillOn;
+      const x = baseX + (showTwo ? (i === 0 ? -chromaticOffset : chromaticOffset) : 0);
       const y = centerY - (displayStep * (gap / 2));
 
       // 加線（先に描画して、後で描く音符が上に重なる）
@@ -613,6 +683,65 @@ function updateScoreSvg(svg) {
 
       // 加線は上で先に描画済み（音符は常に加線の上）
     });
+  }
+
+  // Trill音符（チェック時のみ、右側に追加表示）
+  if (trillEnabledEl instanceof HTMLInputElement && trillEnabledEl.checked &&
+      trillOctEl instanceof HTMLSelectElement && trillNoteEl instanceof HTMLSelectElement) {
+    const tOct = parseInt(trillOctEl.value, 10);
+    const tIdx = parseInt(trillNoteEl.value, 10) % 12;
+    const name = sharpPref[tIdx];
+    const letter = name.l;
+    const acc = name.a; // '#', 'b', or ''（sharp優先）
+    // トリル音用の段階計算はトリル側オクターブで行う
+    const letterIndexMap = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
+    const diatonicIndex = tOct * 7 + letterIndexMap[letter];
+    const refDiatonic = (3 * 7) + letterIndexMap['D']; // D3 基準
+    const stepFromD3 = diatonicIndex - refDiatonic;
+    const displayStep = useTenor ? (stepFromD3 - 4) : stepFromD3;
+
+    const x = left + Math.floor(staffWidth * 0.82); // 右側に配置
+    const y = centerY - (displayStep * (gap / 2));
+
+    // 加線（先に描画）
+    if (Math.abs(displayStep) > 4) {
+      const dir = displayStep > 0 ? 1 : -1;
+      for (let s = dir * 6; Math.abs(s) <= Math.abs(displayStep); s += dir * 2) {
+        const ly = centerY - (s * (gap / 2));
+        const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        l.setAttribute('x1', String(x - 18));
+        l.setAttribute('x2', String(x + 18));
+        l.setAttribute('y1', String(ly));
+        l.setAttribute('y2', String(ly));
+        l.setAttribute('stroke', '#333');
+        l.setAttribute('stroke-width', '1.5');
+        g.appendChild(l);
+      }
+    }
+
+    // 臨時記号（位置調整は本体と同様のルール）
+    if (acc) {
+      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      const ax = x - 28; // 本体と同じ左シフト
+      const ay = y + 5 + (acc === '#' ? 2 : 0);
+      t.setAttribute('x', String(ax));
+      t.setAttribute('y', String(ay));
+      t.setAttribute('font-family', 'Georgia, serif');
+      t.setAttribute('font-size', '20');
+      t.setAttribute('fill', '#111');
+      t.textContent = acc === '#' ? '♯' : '♭';
+      g.appendChild(t);
+    }
+
+    // 音符
+    const ell = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+    ell.setAttribute('cx', String(x));
+    ell.setAttribute('cy', String(y));
+    ell.setAttribute('rx', '10');
+    ell.setAttribute('ry', '8');
+    ell.setAttribute('fill', '#111');
+    ell.setAttribute('transform', `rotate(-15 ${x} ${y})`);
+    g.appendChild(ell);
   }
 }
 
