@@ -58,43 +58,21 @@ body {
 .control-group.trill-group { margin-left: 4px; }
 #note-controls label { font-size: 14px; color: #333; }
 #note-controls .checkbox { display: inline-flex; align-items: center; gap: 6px; }
-#note-input,
+/* Bootstrapの見た目を活かすため、セレクトの枠線/パディング指定は外す */
 #octave-select,
 #note-select,
 #trill-octave-select,
 #trill-note-select {
-  flex: 1 1 auto;
-  min-width: 140px;
-  max-width: 320px;
-  padding: 8px 10px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 14px;
   box-sizing: border-box;
+  font-size: 14px;
 }
 
 /* セレクトの最大幅を個別指定 */
-#octave-select {
-  max-width: 60px;
-  min-width: 0;
-  flex: 0 0 auto;
-}
-#note-select {
-  max-width: 80px;
-  min-width: 0;
-  flex: 0 0 auto;
-}
+#octave-select { min-width: 72px; max-width: 72px; padding-right: 2rem; flex: 0 0 auto; }
+#note-select { min-width: 96px; max-width: 96px; padding-right: 2rem; flex: 0 0 auto; }
 /* Trill用セレクトにも同じ制限を適用 */
-#trill-octave-select {
-  max-width: 60px;
-  min-width: 0;
-  flex: 0 0 auto;
-}
-#trill-note-select {
-  max-width: 80px;
-  min-width: 0;
-  flex: 0 0 auto;
-}
+#trill-octave-select { min-width: 72px; max-width: 72px; padding-right: 2rem; flex: 0 0 auto; }
+#trill-note-select { min-width: 96px; max-width: 96px; padding-right: 2rem; flex: 0 0 auto; }
 #note-controls .help {
   width: 100%;
   font-size: 12px;
@@ -236,9 +214,9 @@ body {
   #page-content { gap: 6px; padding: 6px 0 10px; }
   #note-controls { gap: 6px 8px; }
   #note-controls .control-group { gap: 6px; }
-  #note-controls select { padding: 6px 8px; font-size: 13px; }
-  #octave-select, #trill-octave-select { max-width: 52px; }
-  #note-select, #trill-note-select { max-width: 70px; }
+  #note-controls select { padding: .25rem .75rem; font-size: 13px; }
+  #octave-select, #trill-octave-select { min-width: 64px; max-width: 64px; padding-right: 1.9rem; }
+  #note-select, #trill-note-select { min-width: 88px; max-width: 88px; padding-right: 1.9rem; }
   #download-btn,
   #share-btn,
   #text-btn { min-width: 120px; padding: 8px 10px; font-size: 13px; }
