@@ -438,8 +438,25 @@ function exportSvgToPngBlob(currentSvg) {
       const width = Math.max(1, Math.round(rect.width));
       const height = Math.max(1, Math.round(rect.height));
 
+      // SVGをクローンして、エクスポートに都合のよい寸法属性を付与
+      const cloned = currentSvg.cloneNode(true);
+      // viewBoxが無ければBBoxから生成（失敗時はレイアウト寸法で代用）
+      if (!cloned.getAttribute('viewBox')) {
+        try {
+          const bb = currentSvg.getBBox();
+          cloned.setAttribute('viewBox', `0 0 ${Math.max(1, Math.ceil(bb.width))} ${Math.max(1, Math.ceil(bb.height))}`);
+        } catch {
+          cloned.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        }
+      }
+      // 出力サイズを明示
+      cloned.setAttribute('width', String(width));
+      cloned.setAttribute('height', String(height));
+      // 歪み防止のため既定の比率保持（中央）
+      cloned.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
       const serializer = new XMLSerializer();
-      let svgString = serializer.serializeToString(currentSvg);
+      let svgString = serializer.serializeToString(cloned);
       if (!/^<\?xml/.test(svgString)) {
         svgString = '<?xml version="1.0" encoding="UTF-8"?>\n' + svgString;
       }
@@ -451,13 +468,33 @@ function exportSvgToPngBlob(currentSvg) {
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext('2d');
+        let ctx = canvas.getContext('2d');
         if (!ctx) { URL.revokeObjectURL(url); reject(new Error('no ctx')); return; }
-        ctx.clearRect(0, 0, width, height);
+        // 歪まないようアスペクト比を維持して描画（レターボックス）
+        let destX = 0, destY = 0, destW = width, destH = height;
+        const vb = cloned.viewBox && cloned.viewBox.baseVal;
+        if (vb && vb.width && vb.height) {
+          const sx = width / vb.width;
+          const sy = height / vb.height;
+          const scale = Math.min(sx, sy); // meet（全体を収める）
+          destW = Math.round(vb.width * scale);
+          destH = Math.round(vb.height * scale);
+          destX = Math.floor((width - destW) / 2);
+          destY = Math.floor((height - destH) / 2);
+        }
+        // 左右の余白をトリミング：出力キャンバス幅をコンテンツ幅に合わせ、左右のレターボックスを除去
+        const outW = destW;
+        const outH = height;
+        if (canvas.width !== outW || canvas.height !== outH) {
+          canvas.width = outW; canvas.height = outH;
+          ctx = canvas.getContext('2d');
+          if (!ctx) { URL.revokeObjectURL(url); reject(new Error('no ctx2')); return; }
+        }
+        ctx.clearRect(0, 0, outW, outH);
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
-        // ヘッダー合成は行わず、SVG内の見た目そのままを書き出す
-        ctx.drawImage(img, 0, 0, width, height);
+        ctx.fillRect(0, 0, outW, outH);
+        // ソースの左右をクロップして描画（上下面の余白は保持）
+        ctx.drawImage(img, destX, 0, destW, height, 0, 0, outW, outH);
         URL.revokeObjectURL(url);
         canvas.toBlob((blob) => {
           if (!blob) { reject(new Error('no blob')); return; }
