@@ -45,9 +45,17 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 12px;
+  gap: 8px 12px; /* 行間 8px / 列間 12px */
   margin: 4px 0 0;
 }
+#note-controls .control-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap; /* グループ内は改行しない */
+}
+.control-group.main-group { margin-right: 4px; }
+.control-group.trill-group { margin-left: 4px; }
 #note-controls label { font-size: 14px; color: #333; }
 #note-controls .checkbox { display: inline-flex; align-items: center; gap: 6px; }
 #note-input,
@@ -226,6 +234,11 @@ body {
 /* モバイルや低い画面では余白・サイズを圧縮 */
 @media (max-width: 480px), (max-height: 720px) {
   #page-content { gap: 6px; padding: 6px 0 10px; }
+  #note-controls { gap: 6px 8px; }
+  #note-controls .control-group { gap: 6px; }
+  #note-controls select { padding: 6px 8px; font-size: 13px; }
+  #octave-select, #trill-octave-select { max-width: 52px; }
+  #note-select, #trill-note-select { max-width: 70px; }
   #download-btn,
   #share-btn,
   #text-btn { min-width: 120px; padding: 8px 10px; font-size: 13px; }
