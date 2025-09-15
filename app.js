@@ -35,16 +35,17 @@
   const inlineTextArea = document.getElementById('inline-text-area');
   const textCloseBtn = document.getElementById('text-close-btn');
   const textDeleteBtn = document.getElementById('text-delete-btn');
-  const noteInput = document.getElementById('note-input');
-  const includeScoreCheckbox = document.getElementById('include-score');
+  const octaveSelect = document.getElementById('octave-select');
+  const noteSelect = document.getElementById('note-select');
   if (!wrapper) return;
   const src = wrapper.getAttribute('data-src');
   if (!src) return;
 
   const colors = ['black', 'red', 'blue'];
   const TEXT_KEY = 'fingering_text';
-  const NOTE_KEY = 'fingering_note_text';
-  const INCLUDE_SCORE_KEY = 'fingering_include_score';
+  const NOTE_KEY = 'fingering_note_text'; // 互換用（例: "C#4"）
+  const NOTE_INDEX_KEY = 'fingering_note_index'; // 0-11
+  const OCTAVE_KEY = 'fingering_note_octave'; // 1-5（C1..C5）
 
   function cycleElementColor(el) {
     const raw = el.getAttribute('data-color-index');
@@ -104,17 +105,31 @@
     }
   }
 
-  function getSavedNote() {
+  function getSavedNoteText() {
     try { return localStorage.getItem(NOTE_KEY) || ''; } catch { return ''; }
   }
-  function setSavedNote(v) {
+  function setSavedNoteText(v) {
     try { localStorage.setItem(NOTE_KEY, v || ''); } catch {}
   }
-  function getSavedIncludeScore() {
-    try { return localStorage.getItem(INCLUDE_SCORE_KEY) !== '0'; } catch { return true; }
+  function getSavedNoteIndex() {
+    try {
+      const s = localStorage.getItem(NOTE_INDEX_KEY);
+      const n = s == null ? NaN : parseInt(s, 10);
+      return Number.isFinite(n) ? n : null;
+    } catch { return null; }
   }
-  function setSavedIncludeScore(flag) {
-    try { localStorage.setItem(INCLUDE_SCORE_KEY, flag ? '1' : '0'); } catch {}
+  function setSavedNoteIndex(n) {
+    try { localStorage.setItem(NOTE_INDEX_KEY, String(n)); } catch {}
+  }
+  function getSavedOctave() {
+    try {
+      const s = localStorage.getItem(OCTAVE_KEY);
+      const n = s == null ? NaN : parseInt(s, 10);
+      return Number.isFinite(n) ? n : null;
+    } catch { return null; }
+  }
+  function setSavedOctave(n) {
+    try { localStorage.setItem(OCTAVE_KEY, String(n)); } catch {}
   }
 
   fetch(src)
@@ -141,20 +156,37 @@
       });
 
       // 楽譜（左下オーバーレイ）初期化とイベント
-      if (noteInput instanceof HTMLInputElement) {
-        const savedNote = getSavedNote();
-        if (savedNote) noteInput.value = savedNote;
-        noteInput.addEventListener('input', () => {
-          setSavedNote(noteInput.value || '');
+      // セレクトへの保存値の反映（旧バージョンのテキスト保存も考慮）
+      if (octaveSelect instanceof HTMLSelectElement && noteSelect instanceof HTMLSelectElement) {
+        // まず新キーから復元
+        const savedIdx = getSavedNoteIndex();
+        const savedOct = getSavedOctave();
+        if (savedOct != null) octaveSelect.value = String(savedOct);
+        if (savedIdx != null) noteSelect.value = String(savedIdx);
+
+        // 次に旧キーが残っていたら初期化に利用（例: "C#4"）
+        const legacy = getSavedNoteText();
+        if (legacy && (savedIdx == null || savedOct == null)) {
+          const p = parseNoteText(legacy);
+          if (p) {
+            const mapToIndex = noteTextToIndex(p.letter, p.accidental);
+            if (savedOct == null) octaveSelect.value = String(p.octave);
+            if (savedIdx == null && mapToIndex != null) noteSelect.value = String(mapToIndex);
+          }
+        }
+
+        const onChange = () => {
+          const idx = parseInt(noteSelect.value, 10);
+          const oct = parseInt(octaveSelect.value, 10);
+          setSavedNoteIndex(idx);
+          setSavedOctave(oct);
+          // 互換用の文字列も保存（シャープ優先表記）
+          const txt = indexAndOctaveToText(idx, oct);
+          setSavedNoteText(txt);
           updateScoreSvg(svg);
-        });
-      }
-      if (includeScoreCheckbox instanceof HTMLInputElement) {
-        includeScoreCheckbox.checked = getSavedIncludeScore();
-        includeScoreCheckbox.addEventListener('change', () => {
-          setSavedIncludeScore(!!includeScoreCheckbox.checked);
-          updateScoreSvg(svg);
-        });
+        };
+        octaveSelect.addEventListener('change', onChange);
+        noteSelect.addEventListener('change', onChange);
       }
       // 初回描画
       updateScoreSvg(svg);
@@ -353,12 +385,26 @@ function parseNoteText(s) {
   return { letter, accidental, octave, step };
 }
 
+// 文字の音名を半音インデックス(0=C)へ（シャープ優先）
+function noteTextToIndex(letter, accidental) {
+  const baseIndex = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[letter];
+  if (baseIndex == null) return null;
+  if (accidental === '#') return (baseIndex + 1) % 12;
+  if (accidental === 'b') return (baseIndex + 11) % 12;
+  return baseIndex;
+}
+
+// 半音インデックスとオクターブから文字列（例: C#4）
+function indexAndOctaveToText(index, octave) {
+  const map = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const name = map[((index % 12) + 12) % 12];
+  return name + String(octave);
+}
+
 // SVG左下に五線と音符を重ね描画（非破壊／クリック非阻害）
 function updateScoreSvg(svg) {
-  const noteTextEl = document.getElementById('note-input');
-  const includeScoreEl = document.getElementById('include-score');
-  const noteText = noteTextEl instanceof HTMLInputElement ? (noteTextEl.value || '').trim() : '';
-  const includeScore = includeScoreEl instanceof HTMLInputElement ? !!includeScoreEl.checked : false;
+  const octaveEl = document.getElementById('octave-select');
+  const noteEl = document.getElementById('note-select');
 
   let g = svg.querySelector('#score-overlay');
   if (!g) {
@@ -369,16 +415,64 @@ function updateScoreSvg(svg) {
   }
   while (g.firstChild) g.removeChild(g.firstChild);
 
-  if (!includeScore) return; // 非表示なら何も描かない
+  // 楽譜は常に表示。選択が無ければ C3 に。
+  let octave = 3;
+  let index = 0; // 0=C
+  if (octaveEl instanceof HTMLSelectElement) {
+    const n = parseInt(octaveEl.value, 10);
+    if (Number.isFinite(n)) octave = n;
+  }
+  if (noteEl instanceof HTMLSelectElement) {
+    const n = parseInt(noteEl.value, 10);
+    if (Number.isFinite(n)) index = n;
+  }
 
-  const parsed = parseNoteText(noteText);
+  // 表示用データの算出（#優先／b優先の両方を用意）
+  const sharpPref = [
+    { l: 'C', a: '' },  // 0
+    { l: 'C', a: '#' }, // 1
+    { l: 'D', a: '' },  // 2
+    { l: 'D', a: '#' }, // 3
+    { l: 'E', a: '' },  // 4
+    { l: 'F', a: '' },  // 5
+    { l: 'F', a: '#' }, // 6
+    { l: 'G', a: '' },  // 7
+    { l: 'G', a: '#' }, // 8
+    { l: 'A', a: '' },  // 9
+    { l: 'A', a: '#' }, // 10
+    { l: 'B', a: '' }   // 11
+  ];
+  const flatPref = [
+    { l: 'C', a: '' },  // 0
+    { l: 'D', a: 'b' }, // 1 = Db
+    { l: 'D', a: '' },  // 2
+    { l: 'E', a: 'b' }, // 3 = Eb
+    { l: 'E', a: '' },  // 4
+    { l: 'F', a: '' },  // 5
+    { l: 'G', a: 'b' }, // 6 = Gb
+    { l: 'G', a: '' },  // 7
+    { l: 'A', a: 'b' }, // 8 = Ab
+    { l: 'A', a: '' },  // 9
+    { l: 'B', a: 'b' }, // 10 = Bb
+    { l: 'B', a: '' }   // 11
+  ];
+
+  function calcStepFromD3(letter) {
+    const letterIndexMap = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
+    const diatonicIndex = octave * 7 + letterIndexMap[letter];
+    const refDiatonic = (3 * 7) + letterIndexMap['D']; // D3 を基準
+    return diatonicIndex - refDiatonic;
+  }
+
+  const midi = (octave + 1) * 12 + (index % 12); // C4=60
+  const useTenor = midi >= 61; // C#4(61)以上はテナー
 
   const dims = getSvgDimensions(svg);
   const svgW = dims.width, svgH = dims.height;
   const padLeft = 16, padBottom = 16;
   const staffWidth = Math.min(260, Math.max(180, svgW * 0.35));
   const gap = 16; // 線間
-  const centerY = svgH - padBottom - (gap * 2) - 8; // D3基準
+  const centerY = svgH - padBottom - (gap * 2) - 8; // 中央線（D3基準）
   const left = padLeft;
 
   // 五線 5本
@@ -394,46 +488,94 @@ function updateScoreSvg(svg) {
     g.appendChild(line);
   }
 
-  // 音符（有効な音名がある場合のみ）
-  if (parsed) {
-    const x = left + Math.floor(staffWidth / 2);
-    const y = centerY - (parsed.step * (gap / 2));
+  // ヘ音記号 or テナー（C）記号（位置・サイズ調整、ヘ音記号の点を追加）
+  {
+    const clef = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    const clefX = left + 8;
+    const clefY = centerY - gap + 10; // 4線目付近に見た目合わせ
+    clef.setAttribute('x', String(clefX));
+    clef.setAttribute('y', String(clefY));
+    clef.setAttribute('font-family', 'Noto Music, Segoe UI Symbol, Apple Symbols, serif');
+    clef.setAttribute('font-size', '30');
+    clef.setAttribute('fill', '#111');
+    // 𝄢 (F clef), 𝄡 (C clef)
+    clef.textContent = useTenor ? '\uD834\uDD21' : '\uD834\uDD22';
+    g.appendChild(clef);
 
-    if (parsed.accidental) {
-      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      t.setAttribute('x', String(x - 22));
-      t.setAttribute('y', String(y + 5));
-      t.setAttribute('font-family', 'Georgia, serif');
-      t.setAttribute('font-size', '18');
-      t.setAttribute('fill', '#111');
-      t.textContent = parsed.accidental === '#' ? '♯' : '♭';
-      g.appendChild(t);
+    if (!useTenor) {
+      // ヘ音記号の2点をF線（4線目）上下に追加して視認性向上
+      const dotX = clefX + 22;
+      const dotY1 = centerY - gap - 5;
+      const dotY2 = centerY - gap + 5;
+      const d1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      d1.setAttribute('cx', String(dotX));
+      d1.setAttribute('cy', String(dotY1));
+      d1.setAttribute('r', '1.8');
+      d1.setAttribute('fill', '#111');
+      const d2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      d2.setAttribute('cx', String(dotX));
+      d2.setAttribute('cy', String(dotY2));
+      d2.setAttribute('r', '1.8');
+      d2.setAttribute('fill', '#111');
+      g.appendChild(d1);
+      g.appendChild(d2);
     }
+  }
 
-    const ell = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-    ell.setAttribute('cx', String(x));
-    ell.setAttribute('cy', String(y));
-    ell.setAttribute('rx', '8');
-    ell.setAttribute('ry', '6');
-    ell.setAttribute('fill', '#111');
-    ell.setAttribute('transform', `rotate(-15 ${x} ${y})`);
-    g.appendChild(ell);
+  // 音符
+  {
+    const baseX = left + Math.floor(staffWidth * 0.55);
+    const idx = index % 12;
+    const isChromatic = [1,3,6,8,10].includes(idx);
 
-    // 加線
-    if (Math.abs(parsed.step) > 4) {
-      const dir = parsed.step > 0 ? 1 : -1;
-      for (let s = dir * 6; Math.abs(s) <= Math.abs(parsed.step); s += dir * 2) {
-        const ly = centerY - (s * (gap / 2));
-        const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        l.setAttribute('x1', String(x - 16));
-        l.setAttribute('x2', String(x + 16));
-        l.setAttribute('y1', String(ly));
-        l.setAttribute('y2', String(ly));
-        l.setAttribute('stroke', '#333');
-        l.setAttribute('stroke-width', '1.5');
-        g.appendChild(l);
+    const variants = isChromatic
+      ? [sharpPref[idx], flatPref[idx]]
+      : [sharpPref[idx]]; // 自然音は1つのみ
+
+    variants.forEach((v, i) => {
+      const stepFromD3 = calcStepFromD3(v.l);
+      // テナー記号（C記号が第4線）では C4 を第4線に置くため、
+      // D3基準の+6（C4）を+2（第4線）へ合わせるオフセット -4 を適用
+      const displayStep = useTenor ? (stepFromD3 - 4) : stepFromD3;
+      const x = baseX + (isChromatic ? (i === 0 ? -10 : 10) : 0);
+      const y = centerY - (displayStep * (gap / 2));
+
+      if (v.a) {
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.setAttribute('x', String(x - 22));
+        t.setAttribute('y', String(y + 5));
+        t.setAttribute('font-family', 'Georgia, serif');
+        t.setAttribute('font-size', '18');
+        t.setAttribute('fill', '#111');
+        t.textContent = v.a === '#' ? '♯' : '♭';
+        g.appendChild(t);
       }
-    }
+
+      const ell = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+      ell.setAttribute('cx', String(x));
+      ell.setAttribute('cy', String(y));
+      ell.setAttribute('rx', '8');
+      ell.setAttribute('ry', '6');
+      ell.setAttribute('fill', '#111');
+      ell.setAttribute('transform', `rotate(-15 ${x} ${y})`);
+      g.appendChild(ell);
+
+      // 加線
+      if (Math.abs(displayStep) > 4) {
+        const dir = displayStep > 0 ? 1 : -1;
+        for (let s = dir * 6; Math.abs(s) <= Math.abs(displayStep); s += dir * 2) {
+          const ly = centerY - (s * (gap / 2));
+          const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          l.setAttribute('x1', String(x - 16));
+          l.setAttribute('x2', String(x + 16));
+          l.setAttribute('y1', String(ly));
+          l.setAttribute('y2', String(ly));
+          l.setAttribute('stroke', '#333');
+          l.setAttribute('stroke-width', '1.5');
+          g.appendChild(l);
+        }
+      }
+    });
   }
 }
 

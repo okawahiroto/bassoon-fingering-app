@@ -12,12 +12,29 @@
       <div id="bassoon-wrapper" data-src="picture/bassoon_key.svg" aria-label="バスーンキー SVG"></div>
       <!-- 音名と楽譜コントロール -->
       <div id="note-controls" aria-label="音名と楽譜設定">
-        <label for="note-input">音名:</label>
-        <input id="note-input" type="text" inputmode="latin" placeholder="例: C4, F#3, Eb3" aria-describedby="note-help" />
-        <label class="checkbox">
-          <input id="include-score" type="checkbox" checked /> 左下に楽譜を表示
-        </label>
-        <div id="note-help" class="help">半音記号は # / ♯ / b / ♭ が使えます</div>
+        <label for="octave-select">オクターブ:</label>
+        <select id="octave-select">
+          <option value="5">C5</option>
+          <option value="4">C4</option>
+          <option value="3" selected>C3</option>
+          <option value="2">C2</option>
+          <option value="1">C1</option>
+        </select>
+        <label for="note-select">音名:</label>
+        <select id="note-select">
+          <option value="11">B</option>
+          <option value="10">A#/Bb</option>
+          <option value="9">A</option>
+          <option value="8">G#/Ab</option>
+          <option value="7">G</option>
+          <option value="6">F#/Gb</option>
+          <option value="5">F</option>
+          <option value="4">E</option>
+          <option value="3">D#/Eb</option>
+          <option value="2">D</option>
+          <option value="1">C#/Db</option>
+          <option value="0">C</option>
+        </select>
       </div>
       <!-- SVG直下の常設メモ入力欄 -->
       <div id="inline-notes">

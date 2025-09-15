@@ -50,7 +50,9 @@ body {
 }
 #note-controls label { font-size: 14px; color: #333; }
 #note-controls .checkbox { display: inline-flex; align-items: center; gap: 6px; }
-#note-input {
+#note-input,
+#octave-select,
+#note-select {
   flex: 1 1 auto;
   min-width: 140px;
   max-width: 320px;
