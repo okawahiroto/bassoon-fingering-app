@@ -62,6 +62,18 @@ body {
   font-size: 14px;
   box-sizing: border-box;
 }
+
+/* セレクトの最大幅を個別指定 */
+#octave-select {
+  max-width: 60px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+#note-select {
+  max-width: 80px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
 #note-controls .help {
   width: 100%;
   font-size: 12px;

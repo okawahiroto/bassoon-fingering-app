@@ -158,10 +158,46 @@
       // 楽譜（左下オーバーレイ）初期化とイベント
       // セレクトへの保存値の反映（旧バージョンのテキスト保存も考慮）
       if (octaveSelect instanceof HTMLSelectElement && noteSelect instanceof HTMLSelectElement) {
+        // ノートセレクトの内容をオクターブに応じて再構築
+        const rebuildNoteOptions = (oct) => {
+          const entriesAllDesc = [
+            { v: 11, label: 'B' },
+            { v: 10, label: 'A#/Bb' },
+            { v: 9, label: 'A' },
+            { v: 8, label: 'G#/Ab' },
+            { v: 7, label: 'G' },
+            { v: 6, label: 'F#/Gb' },
+            { v: 5, label: 'F' },
+            { v: 4, label: 'E' },
+            { v: 3, label: 'D#/Eb' },
+            { v: 2, label: 'D' },
+            { v: 1, label: 'C#/Db' },
+            { v: 0, label: 'C' },
+          ];
+          const entriesC1 = [
+            { v: 10, label: 'A#/Bb' },
+            { v: 11, label: 'B' },
+          ];
+          const current = parseInt(noteSelect.value || '0', 10);
+          const allowed = (oct === 1) ? entriesC1 : entriesAllDesc;
+          noteSelect.innerHTML = '';
+          allowed.forEach(({ v, label }) => {
+            const opt = document.createElement('option');
+            opt.value = String(v);
+            opt.textContent = label;
+            noteSelect.appendChild(opt);
+          });
+          // 現在値が許容されない場合は先頭を選択
+          const stillExists = allowed.some(({ v }) => v === current);
+          noteSelect.value = stillExists ? String(current) : String(allowed[0].v);
+        };
+
         // まず新キーから復元
         const savedIdx = getSavedNoteIndex();
         const savedOct = getSavedOctave();
         if (savedOct != null) octaveSelect.value = String(savedOct);
+        // オプション構築はオクターブに依存
+        rebuildNoteOptions(parseInt(octaveSelect.value, 10));
         if (savedIdx != null) noteSelect.value = String(savedIdx);
 
         // 次に旧キーが残っていたら初期化に利用（例: "C#4"）
@@ -171,13 +207,16 @@
           if (p) {
             const mapToIndex = noteTextToIndex(p.letter, p.accidental);
             if (savedOct == null) octaveSelect.value = String(p.octave);
+            // オクターブ変更に伴い再構築
+            rebuildNoteOptions(parseInt(octaveSelect.value, 10));
             if (savedIdx == null && mapToIndex != null) noteSelect.value = String(mapToIndex);
           }
         }
 
         const onChange = () => {
-          const idx = parseInt(noteSelect.value, 10);
           const oct = parseInt(octaveSelect.value, 10);
+          rebuildNoteOptions(oct);
+          const idx = parseInt(noteSelect.value, 10);
           setSavedNoteIndex(idx);
           setSavedOctave(oct);
           // 互換用の文字列も保存（シャープ優先表記）
@@ -416,6 +455,8 @@ function updateScoreSvg(svg) {
     svg.appendChild(g);
   }
   while (g.firstChild) g.removeChild(g.firstChild);
+  // 楽譜全体を48px上へシフト
+  g.setAttribute('transform', 'translate(0,-48)');
 
   // 楽譜は常に表示。選択が無ければ C3 に。
   let octave = 3;
