@@ -410,7 +410,9 @@ function updateScoreSvg(svg) {
   if (!g) {
     g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     g.setAttribute('id', 'score-overlay');
-    g.setAttribute('style', 'pointer-events:none');
+    // 音符に対するクリックを下層へ通さない
+    g.setAttribute('style', 'pointer-events:auto');
+    g.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); }, { capture: true });
     svg.appendChild(g);
   }
   while (g.firstChild) g.removeChild(g.firstChild);
@@ -492,34 +494,19 @@ function updateScoreSvg(svg) {
   {
     const clef = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     const clefX = left + 8;
-    const clefY = centerY - gap + 10; // 4線目付近に見た目合わせ
+    const clefYBase = centerY - gap + 30; // 3倍サイズ基準
+    // ヘ音記号のみ 0.5線間 + 6px だけ下げる（基準線は維持）
+    const clefY = useTenor ? clefYBase : (clefYBase + (gap / 2) + 6);
     clef.setAttribute('x', String(clefX));
     clef.setAttribute('y', String(clefY));
     clef.setAttribute('font-family', 'Noto Music, Segoe UI Symbol, Apple Symbols, serif');
-    clef.setAttribute('font-size', '30');
+    clef.setAttribute('font-size', '90');
     clef.setAttribute('fill', '#111');
     // 𝄢 (F clef), 𝄡 (C clef)
     clef.textContent = useTenor ? '\uD834\uDD21' : '\uD834\uDD22';
     g.appendChild(clef);
 
-    if (!useTenor) {
-      // ヘ音記号の2点をF線（4線目）上下に追加して視認性向上
-      const dotX = clefX + 22;
-      const dotY1 = centerY - gap - 5;
-      const dotY2 = centerY - gap + 5;
-      const d1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      d1.setAttribute('cx', String(dotX));
-      d1.setAttribute('cy', String(dotY1));
-      d1.setAttribute('r', '1.8');
-      d1.setAttribute('fill', '#111');
-      const d2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      d2.setAttribute('cx', String(dotX));
-      d2.setAttribute('cy', String(dotY2));
-      d2.setAttribute('r', '1.8');
-      d2.setAttribute('fill', '#111');
-      g.appendChild(d1);
-      g.appendChild(d2);
-    }
+    // 要望によりヘ音記号の2点は描画しない
   }
 
   // 音符
@@ -537,15 +524,38 @@ function updateScoreSvg(svg) {
       // テナー記号（C記号が第4線）では C4 を第4線に置くため、
       // D3基準の+6（C4）を+2（第4線）へ合わせるオフセット -4 を適用
       const displayStep = useTenor ? (stepFromD3 - 4) : stepFromD3;
-      const x = baseX + (isChromatic ? (i === 0 ? -10 : 10) : 0);
+      // 半音時: 2つの加線が中央で12px空くように、中心間距離を(2*ledgerHalf + 12)に設定
+      const ledgerHalf = 18;
+      const chromaticGap = 12; // 加線の中央の空き幅（px）
+      const chromaticOffset = ledgerHalf + chromaticGap / 2; // = 24px
+      const x = baseX + (isChromatic ? (i === 0 ? -chromaticOffset : chromaticOffset) : 0);
       const y = centerY - (displayStep * (gap / 2));
+
+      // 加線（先に描画して、後で描く音符が上に重なる）
+      if (Math.abs(displayStep) > 4) {
+        const dir = displayStep > 0 ? 1 : -1;
+        for (let s = dir * 6; Math.abs(s) <= Math.abs(displayStep); s += dir * 2) {
+          const ly = centerY - (s * (gap / 2));
+          const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          l.setAttribute('x1', String(x - ledgerHalf));
+          l.setAttribute('x2', String(x + ledgerHalf));
+          l.setAttribute('y1', String(ly));
+          l.setAttribute('y2', String(ly));
+          l.setAttribute('stroke', '#333');
+          l.setAttribute('stroke-width', '1.5');
+          g.appendChild(l);
+        }
+      }
 
       if (v.a) {
         const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        t.setAttribute('x', String(x - 22));
-        t.setAttribute('y', String(y + 5));
+        // どちらもXを3px左へ、サイズを20に。#のみYを+2px下げる。
+        const ax = x - 28; // さらに3px左へ（合計6px左）
+        const ay = y + 5 + (v.a === '#' ? 2 : 0);
+        t.setAttribute('x', String(ax));
+        t.setAttribute('y', String(ay));
         t.setAttribute('font-family', 'Georgia, serif');
-        t.setAttribute('font-size', '18');
+        t.setAttribute('font-size', '20');
         t.setAttribute('fill', '#111');
         t.textContent = v.a === '#' ? '♯' : '♭';
         g.appendChild(t);
@@ -554,27 +564,13 @@ function updateScoreSvg(svg) {
       const ell = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
       ell.setAttribute('cx', String(x));
       ell.setAttribute('cy', String(y));
-      ell.setAttribute('rx', '8');
-      ell.setAttribute('ry', '6');
+      ell.setAttribute('rx', '10');
+      ell.setAttribute('ry', '8');
       ell.setAttribute('fill', '#111');
       ell.setAttribute('transform', `rotate(-15 ${x} ${y})`);
       g.appendChild(ell);
 
-      // 加線
-      if (Math.abs(displayStep) > 4) {
-        const dir = displayStep > 0 ? 1 : -1;
-        for (let s = dir * 6; Math.abs(s) <= Math.abs(displayStep); s += dir * 2) {
-          const ly = centerY - (s * (gap / 2));
-          const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          l.setAttribute('x1', String(x - 16));
-          l.setAttribute('x2', String(x + 16));
-          l.setAttribute('y1', String(ly));
-          l.setAttribute('y2', String(ly));
-          l.setAttribute('stroke', '#333');
-          l.setAttribute('stroke-width', '1.5');
-          g.appendChild(l);
-        }
-      }
+      // 加線は上で先に描画済み（音符は常に加線の上）
     });
   }
 }
