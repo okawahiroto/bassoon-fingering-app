@@ -560,8 +560,6 @@ function updateScoreSvg(svg) {
     svg.appendChild(g);
   }
   while (g.firstChild) g.removeChild(g.firstChild);
-  // 楽譜全体を48px上へシフト
-  g.setAttribute('transform', 'translate(0,-48)');
 
   // 楽譜は常に表示。選択が無ければ C3 に。
   let octave = 3;
@@ -622,6 +620,13 @@ function updateScoreSvg(svg) {
   const gap = 16; // 線間
   const centerY = svgH - padBottom - (gap * 2) - 8; // 中央線（D3基準）
   const left = padLeft;
+
+  // スケールをかけて被りを軽減（約50%）し、左下付近を基準点にして縮小
+  const SCORE_SCALE = 0.5;
+  const anchorX = left;
+  const anchorY = svgH - padBottom;
+  const transformStr = `translate(${anchorX},${anchorY}) scale(${SCORE_SCALE}) translate(${-anchorX},${-anchorY}) translate(0,-48)`;
+  g.setAttribute('transform', transformStr);
 
   // 五線 5本
   for (let i = -4; i <= 4; i += 2) {
@@ -779,6 +784,96 @@ function updateScoreSvg(svg) {
     ell.setAttribute('fill', '#111');
     ell.setAttribute('transform', `rotate(-15 ${x} ${y})`);
     g.appendChild(ell);
+  }
+
+  // 凡例（右下固定・クリックは無効＝下のキーも変化させない）
+  {
+    let lg = svg.querySelector('#legend-overlay');
+    if (!lg) {
+      lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      lg.setAttribute('id', 'legend-overlay');
+      // 凡例領域でイベントを消費して下層へ伝播させない
+      lg.setAttribute('style', 'pointer-events:auto');
+      lg.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); }, { capture: true });
+      svg.appendChild(lg);
+    }
+    while (lg.firstChild) lg.removeChild(lg.firstChild);
+
+    const boxPadX = 6, boxPadY = 6;
+    const lineH = 12;
+    const sw = 10; // 色見本サイズ（直径）
+    const gapX = 6; // 見本と文字の間
+    const entries = [
+      { label: 'Press/Cover', color: '#111' },
+      { label: 'Trill', color: 'red' },
+      { label: 'HalfHole', color: 'blue' },
+    ];
+    // フォントサイズ（小さめ指定）
+    const legendFontSize = 10;
+    // テキスト幅を実測して、はみ出さない幅を算出
+    let maxTextW = 0;
+    entries.forEach((e) => {
+      const mt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      mt.setAttribute('x', '0');
+      mt.setAttribute('y', '0');
+      mt.setAttribute('font-family', 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif');
+      mt.setAttribute('font-size', String(legendFontSize));
+      mt.setAttribute('style', 'pointer-events:none; visibility:hidden');
+      mt.textContent = e.label;
+      lg.appendChild(mt);
+      try {
+        const w = mt.getBBox().width;
+        if (w > maxTextW) maxTextW = w;
+      } catch {}
+      mt.remove();
+    });
+    const contentW = Math.ceil(sw + gapX + maxTextW);
+    const contentH = entries.length * lineH;
+    const boxW = Math.ceil(contentW + boxPadX * 2); // 文字がはみ出ない幅
+    const boxH = contentH + boxPadY * 2;
+    const margin = 12;
+    // 中央基準から60px右へ。右端に食い込まないようにクランプ。
+    const boxX = Math.max(0, Math.min(svgW - margin - boxW, (svgW - boxW) / 2 + 60));
+    const boxY = svgH - margin - boxH;
+
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bg.setAttribute('x', String(boxX));
+    bg.setAttribute('y', String(boxY));
+    bg.setAttribute('width', String(boxW));
+    bg.setAttribute('height', String(boxH));
+    bg.setAttribute('rx', '6');
+    bg.setAttribute('fill', 'rgba(255,255,255,0.9)');
+    bg.setAttribute('stroke', '#ccc');
+    bg.setAttribute('stroke-width', '1');
+    // 背景だけクリックを受け止める（下層へ通さない）
+    bg.setAttribute('style', 'pointer-events:auto');
+    lg.appendChild(bg);
+
+    entries.forEach((e, i) => {
+      const y = boxY + boxPadY + i * lineH + 2;
+      const swatch = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      const cx = boxX + boxPadX + sw / 2;
+      const cy = y + sw / 2;
+      swatch.setAttribute('cx', String(cx));
+      swatch.setAttribute('cy', String(cy));
+      swatch.setAttribute('r', String(sw / 2));
+      // 円の塗りつぶし
+      swatch.setAttribute('fill', e.color);
+      swatch.setAttribute('stroke', 'none');
+    // 凡例内のスウォッチやテキストはクリック無効
+      swatch.setAttribute('style', 'pointer-events:none');
+      lg.appendChild(swatch);
+
+      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      t.setAttribute('x', String(boxX + boxPadX + sw + gapX));
+      t.setAttribute('y', String(y + sw - 2));
+      t.setAttribute('font-family', 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif');
+      t.setAttribute('font-size', String(legendFontSize));
+      t.setAttribute('fill', '#222');
+      t.textContent = e.label;
+      t.setAttribute('style', 'pointer-events:none');
+      lg.appendChild(t);
+    });
   }
 }
 
