@@ -29,6 +29,7 @@
   const wrapper = document.getElementById('bassoon-wrapper');
   const downloadBtn = document.getElementById('download-btn');
   const shareBtn = document.getElementById('share-btn');
+  const fullscreenBtn = document.getElementById('fullscreen-btn');
   const textBtn = document.getElementById('text-btn');
   const textModal = document.getElementById('text-modal');
   const textArea = document.getElementById('text-area');
@@ -142,6 +143,10 @@
       const svg = wrapper.querySelector('svg');
       if (!svg) return;
       svg.id = 'bassoonSvg';
+      // 既定は "meet"（全体が収まる）。フルスクリーン時も切り取りは行わない。
+      if (!svg.getAttribute('preserveAspectRatio')) {
+        svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+      }
 
       // 純CSSレイアウトにより高さ調整（JSは不要）
 
@@ -356,6 +361,21 @@
             alert('共有に失敗しました。ダウンロード機能をご利用ください。');
           }
         });
+      }
+
+      // Fullscreen トグル
+      if (fullscreenBtn instanceof HTMLButtonElement) {
+        fullscreenBtn.disabled = false;
+        const updateLabel = () => {
+          const fs = document.body.classList.contains('is-fullscreen');
+          fullscreenBtn.textContent = fs ? 'Close' : 'Full';
+          fullscreenBtn.setAttribute('aria-label', fs ? '全画面を閉じる' : '全画面で表示');
+        };
+        fullscreenBtn.addEventListener('click', () => {
+          document.body.classList.toggle('is-fullscreen');
+          updateLabel();
+        });
+        updateLabel();
       }
 
       // Share to X/Copy Image ボタンは廃止（Shareのみ使用）
@@ -786,7 +806,7 @@ function updateScoreSvg(svg) {
     g.appendChild(ell);
   }
 
-  // 凡例（右下固定・クリックは無効＝下のキーも変化させない）
+  // 凡例（左側・楽譜の上に配置。クリックは無効＝下のキーも変化させない）
   {
     let lg = svg.querySelector('#legend-overlay');
     if (!lg) {
@@ -832,9 +852,10 @@ function updateScoreSvg(svg) {
     const boxW = Math.ceil(contentW + boxPadX * 2); // 文字がはみ出ない幅
     const boxH = contentH + boxPadY * 2;
     const margin = 12;
-    // 中央基準から60px右へ。右端に食い込まないようにクランプ。
-    const boxX = Math.max(0, Math.min(svgW - margin - boxW, (svgW - boxW) / 2 + 60));
-    const boxY = svgH - margin - boxH;
+    // 楽譜（五線）の最上線より上に配置し、左側に寄せる
+    const topStaffY = centerY - 2 * gap; // 五線の最上線Y
+    const boxX = Math.max(4, Math.min(svgW - margin - boxW, left));
+    const boxY = Math.max(4, topStaffY - margin - boxH);
 
     const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     bg.setAttribute('x', String(boxX));
