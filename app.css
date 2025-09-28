@@ -164,18 +164,25 @@ body {
 .modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  /* 背景を暗くしない（クリックブロック用途のみ） */
+  background: transparent;
+  z-index: 1000;
+  /* 背景は操作対象にしない。誤って前面に出てもクリックを阻害しない */
+  pointer-events: none;
 }
 .modal-dialog {
-  position: absolute;
+  position: fixed;
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(720px, 92vw);
+  top: 0;
+  transform: translate(-50%, 0);
+  width: min(720px, 100vw);
+  max-height: 100dvh;
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
   overflow: hidden;
+  z-index: 1001; /* バックドロップより上に */
+  pointer-events: auto;
 }
 .modal-header {
   display: flex;
@@ -187,6 +194,8 @@ body {
 .modal-actions { display: flex; gap: 8px; align-items: center; }
 .modal-body {
   padding: 12px 16px 16px;
+  overflow: auto;
+  max-height: calc(100dvh - 60px); /* ヘッダーを除いた高さでスクロール */
 }
 #text-area {
   width: 100%;
@@ -227,37 +236,8 @@ body {
   #share-btn,
   #text-btn { min-width: 120px; padding: 8px 10px; font-size: 13px; }
   #inline-text-area { height: clamp(36px, 9svh, 64px); font-size: 13px; }
+  .modal-dialog { width: 100vw; border-radius: 0; }
 }
 
-/* ===== フルスクリーン表示（縦横比は維持、画面いっぱい） ===== */
-/* ボディに .is-fullscreen を付与して切替 */
-.is-fullscreen #page-content {
-  width: 100vw;
-  height: 100svh;
-  height: 100dvh;
-  margin: 0;
-  padding: 0;
-}
-.is-fullscreen #bassoon-wrapper {
-  position: fixed;
-  inset: 0;
-  z-index: 900;
-}
-.is-fullscreen #bassoon-wrapper svg {
-  width: 100vw;
-  height: 100svh; /* アスペクト比はSVGの preserveAspectRatio で維持 */
-}
-/* 余計なUIは隠す */
-.is-fullscreen #note-controls,
-.is-fullscreen #inline-notes,
-.is-fullscreen #download-btn,
-.is-fullscreen #share-btn,
-.is-fullscreen #text-btn { display: none !important; }
-/* フルスクリーン切替ボタンは固定表示（右上） */
-#fullscreen-btn { min-width: 90px; }
-.is-fullscreen #fullscreen-btn {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  z-index: 1000;
-}
+/* メモボタンの最小幅 */
+#memo-btn { min-width: 90px; }

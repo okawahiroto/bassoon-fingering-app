@@ -29,7 +29,7 @@
   const wrapper = document.getElementById('bassoon-wrapper');
   const downloadBtn = document.getElementById('download-btn');
   const shareBtn = document.getElementById('share-btn');
-  const fullscreenBtn = document.getElementById('fullscreen-btn');
+  const memoBtn = document.getElementById('memo-btn');
   const textBtn = document.getElementById('text-btn');
   const textModal = document.getElementById('text-modal');
   const textArea = document.getElementById('text-area');
@@ -79,7 +79,16 @@
     const saved = getSavedText();
     if (textArea instanceof HTMLTextAreaElement) {
       textArea.value = saved;
-      setTimeout(() => textArea.focus(), 0);
+      // モバイルでキーボードが出ない対策：即時フォーカス + 選択範囲設定
+      try {
+        textArea.focus({ preventScroll: true });
+        const len = textArea.value.length;
+        textArea.setSelectionRange(len, len);
+      } catch {}
+      // rAFで追いフォーカス（iOS対策）
+      try { requestAnimationFrame(() => { try { textArea.focus({ preventScroll: true }); } catch {} }); } catch {}
+      // キーボード重なり対策：少し後で中央付近にスクロール
+      try { setTimeout(() => { try { textArea.scrollIntoView({ block: 'center' }); } catch {} }, 80); } catch {}
     }
   }
   function closeTextModal() {
@@ -363,60 +372,17 @@
         });
       }
 
-      // Fullscreen トグル（ネイティブAPI優先、フォールバックでCSSクラス）
-      if (fullscreenBtn instanceof HTMLButtonElement) {
-        fullscreenBtn.disabled = false;
-
-        const isNativeFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-        const enterNativeFullscreen = async () => {
-          const el = document.documentElement;
-          if (el.requestFullscreen) return el.requestFullscreen();
-          if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
-        };
-        const exitNativeFullscreen = async () => {
-          if (document.exitFullscreen) return document.exitFullscreen();
-          if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
-        };
-
-        const updateUi = () => {
-          const fs = isNativeFullscreen() || document.body.classList.contains('is-fullscreen');
-          fullscreenBtn.textContent = fs ? 'Close' : 'Full';
-          fullscreenBtn.setAttribute('aria-label', fs ? '全画面を閉じる' : '全画面で表示');
-          // CSSレイアウト最適化用のクラスは常に同期
-          document.body.classList.toggle('is-fullscreen', fs);
-        };
-
-        document.addEventListener('fullscreenchange', updateUi);
-        document.addEventListener('webkitfullscreenchange', updateUi);
-
-        fullscreenBtn.addEventListener('click', async () => {
-          try {
-            if (isNativeFullscreen()) {
-              await exitNativeFullscreen();
-            } else {
-              // ネイティブが失敗したらCSSフォールバック
-              try {
-                await enterNativeFullscreen();
-              } catch {
-                document.body.classList.toggle('is-fullscreen');
-              }
-            }
-          } catch {
-            // いずれも失敗時はフォールバックでトグル
-            document.body.classList.toggle('is-fullscreen');
-          } finally {
-            updateUi();
-          }
-        });
-        updateUi();
+      // Memoボタンでメモ用モーダルを開く
+      if (memoBtn instanceof HTMLButtonElement) {
+        memoBtn.disabled = false;
+        memoBtn.textContent = 'Memo';
+        memoBtn.setAttribute('aria-label', 'メモや注釈を入力');
+        memoBtn.addEventListener('click', openTextModal);
       }
 
       // Share to X/Copy Image ボタンは廃止（Shareのみ使用）
 
-      // Text Imput モーダル制御
-      if (textBtn instanceof HTMLButtonElement) {
-        textBtn.addEventListener('click', openTextModal);
-      }
+      // Text Input モーダル制御
       if (textCloseBtn instanceof HTMLButtonElement) {
         textCloseBtn.addEventListener('click', () => {
           if (textArea instanceof HTMLTextAreaElement) {
@@ -427,11 +393,15 @@
           closeTextModal();
         });
       }
+      // モーダル外クリックで閉じる（内側では閉じない）
       if (textModal instanceof HTMLElement) {
-        // 背景クリックで閉じる
         textModal.addEventListener('click', (e) => {
+          const dialog = textModal.querySelector('.modal-dialog');
           const t = e.target;
-          if (t instanceof HTMLElement && t.dataset.close === 'true') {
+          if (!(dialog instanceof HTMLElement) || !(t instanceof HTMLElement)) return;
+          const clickedInside = dialog.contains(t);
+          if (!clickedInside) {
+            // 外側クリック: 保存して閉じる
             if (textArea instanceof HTMLTextAreaElement) {
               saveTextValue(textArea.value || '');
             } else if (inlineTextArea instanceof HTMLTextAreaElement) {
@@ -735,6 +705,9 @@ function updateScoreSvg(svg) {
       const chromaticOffset = ledgerHalf + chromaticGap / 2; // = 24px
       const showTwo = isChromatic && !trillOn;
       const x = baseX + (showTwo ? (i === 0 ? -chromaticOffset : chromaticOffset) : 0);
+      const xBaseShifted = x + 20; // 現状の右シフト
+      // Trill時は元の音符をさらに24px左へ移動
+      const xNote = xBaseShifted + (trillOn ? -24 : 0);
       const y = centerY - (displayStep * (gap / 2));
 
       // 加線（先に描画して、後で描く音符が上に重なる）
@@ -743,8 +716,8 @@ function updateScoreSvg(svg) {
         for (let s = dir * 6; Math.abs(s) <= Math.abs(displayStep); s += dir * 2) {
           const ly = centerY - (s * (gap / 2));
           const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          l.setAttribute('x1', String(x - ledgerHalf));
-          l.setAttribute('x2', String(x + ledgerHalf));
+          l.setAttribute('x1', String(xNote - ledgerHalf));
+          l.setAttribute('x2', String(xNote + ledgerHalf));
           l.setAttribute('y1', String(ly));
           l.setAttribute('y2', String(ly));
           l.setAttribute('stroke', '#333');
@@ -756,7 +729,7 @@ function updateScoreSvg(svg) {
       if (v.a) {
         const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         // どちらもXを3px左へ、サイズを20に。#のみYを+2px下げる。
-        const ax = x - 28; // さらに3px左へ（合計6px左）
+        const ax = xNote - 28; // 音符基準の左側に配置（相対位置は維持）
         const ay = y + 5 + (v.a === '#' ? 2 : 0);
         t.setAttribute('x', String(ax));
         t.setAttribute('y', String(ay));
@@ -768,12 +741,12 @@ function updateScoreSvg(svg) {
       }
 
       const ell = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-      ell.setAttribute('cx', String(x));
+      ell.setAttribute('cx', String(xNote));
       ell.setAttribute('cy', String(y));
       ell.setAttribute('rx', '10');
       ell.setAttribute('ry', '8');
       ell.setAttribute('fill', '#111');
-      ell.setAttribute('transform', `rotate(-15 ${x} ${y})`);
+      ell.setAttribute('transform', `rotate(-15 ${xNote} ${y})`);
       g.appendChild(ell);
 
       // 加線は上で先に描画済み（音符は常に加線の上）
@@ -795,7 +768,10 @@ function updateScoreSvg(svg) {
     const stepFromD3 = diatonicIndex - refDiatonic;
     const displayStep = useTenor ? (stepFromD3 - 4) : stepFromD3;
 
-    const x = left + Math.floor(staffWidth * 0.82); // 右側に配置
+    // Trillも本体と同じX基準で配置
+    const baseXForTrill = left + Math.floor(staffWidth * 0.55);
+    const x = baseXForTrill; // 本体と同じ基準
+    const xNote = x + 38; // 本体の+20pxに加えてTrillは+18px右へ（さらに+6px）
     const y = centerY - (displayStep * (gap / 2));
 
     // 加線（先に描画）
@@ -804,8 +780,8 @@ function updateScoreSvg(svg) {
       for (let s = dir * 6; Math.abs(s) <= Math.abs(displayStep); s += dir * 2) {
         const ly = centerY - (s * (gap / 2));
         const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        l.setAttribute('x1', String(x - 18));
-        l.setAttribute('x2', String(x + 18));
+        l.setAttribute('x1', String(xNote - 18));
+        l.setAttribute('x2', String(xNote + 18));
         l.setAttribute('y1', String(ly));
         l.setAttribute('y2', String(ly));
         l.setAttribute('stroke', '#333');
@@ -817,7 +793,7 @@ function updateScoreSvg(svg) {
     // 臨時記号（位置調整は本体と同様のルール）
     if (acc) {
       const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      const ax = x - 28; // 本体と同じ左シフト
+      const ax = xNote - 28; // 本体と同様に音符基準の左側へ
       const ay = y + 5 + (acc === '#' ? 2 : 0);
       t.setAttribute('x', String(ax));
       t.setAttribute('y', String(ay));
@@ -830,12 +806,12 @@ function updateScoreSvg(svg) {
 
     // 音符
     const ell = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-    ell.setAttribute('cx', String(x));
+    ell.setAttribute('cx', String(xNote));
     ell.setAttribute('cy', String(y));
     ell.setAttribute('rx', '10');
     ell.setAttribute('ry', '8');
     ell.setAttribute('fill', '#111');
-    ell.setAttribute('transform', `rotate(-15 ${x} ${y})`);
+    ell.setAttribute('transform', `rotate(-15 ${xNote} ${y})`);
     g.appendChild(ell);
   }
 
