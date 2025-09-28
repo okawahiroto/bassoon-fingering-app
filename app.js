@@ -363,19 +363,52 @@
         });
       }
 
-      // Fullscreen トグル
+      // Fullscreen トグル（ネイティブAPI優先、フォールバックでCSSクラス）
       if (fullscreenBtn instanceof HTMLButtonElement) {
         fullscreenBtn.disabled = false;
-        const updateLabel = () => {
-          const fs = document.body.classList.contains('is-fullscreen');
+
+        const isNativeFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+        const enterNativeFullscreen = async () => {
+          const el = document.documentElement;
+          if (el.requestFullscreen) return el.requestFullscreen();
+          if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+        };
+        const exitNativeFullscreen = async () => {
+          if (document.exitFullscreen) return document.exitFullscreen();
+          if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+        };
+
+        const updateUi = () => {
+          const fs = isNativeFullscreen() || document.body.classList.contains('is-fullscreen');
           fullscreenBtn.textContent = fs ? 'Close' : 'Full';
           fullscreenBtn.setAttribute('aria-label', fs ? '全画面を閉じる' : '全画面で表示');
+          // CSSレイアウト最適化用のクラスは常に同期
+          document.body.classList.toggle('is-fullscreen', fs);
         };
-        fullscreenBtn.addEventListener('click', () => {
-          document.body.classList.toggle('is-fullscreen');
-          updateLabel();
+
+        document.addEventListener('fullscreenchange', updateUi);
+        document.addEventListener('webkitfullscreenchange', updateUi);
+
+        fullscreenBtn.addEventListener('click', async () => {
+          try {
+            if (isNativeFullscreen()) {
+              await exitNativeFullscreen();
+            } else {
+              // ネイティブが失敗したらCSSフォールバック
+              try {
+                await enterNativeFullscreen();
+              } catch {
+                document.body.classList.toggle('is-fullscreen');
+              }
+            }
+          } catch {
+            // いずれも失敗時はフォールバックでトグル
+            document.body.classList.toggle('is-fullscreen');
+          } finally {
+            updateUi();
+          }
         });
-        updateLabel();
+        updateUi();
       }
 
       // Share to X/Copy Image ボタンは廃止（Shareのみ使用）
@@ -852,10 +885,19 @@ function updateScoreSvg(svg) {
     const boxW = Math.ceil(contentW + boxPadX * 2); // 文字がはみ出ない幅
     const boxH = contentH + boxPadY * 2;
     const margin = 12;
-    // 楽譜（五線）の最上線より上に配置し、左側に寄せる
-    const topStaffY = centerY - 2 * gap; // 五線の最上線Y
+    // 位置: 指定のパス（左側ブロックの上端）に上端を揃える。
+    // 万一見つからない場合は上端マージン位置にフォールバック。
     const boxX = Math.max(4, Math.min(svgW - margin - boxW, left));
-    const boxY = Math.max(4, topStaffY - margin - boxH);
+    let boxY = Math.max(4, margin);
+    try {
+      const anchor = svg.querySelector('path[d^="M144 262H196.857C203.011 262"]');
+      if (anchor) {
+        const bb = anchor.getBBox();
+        if (bb && Number.isFinite(bb.y)) {
+          boxY = Math.max(4, bb.y);
+        }
+      }
+    } catch {}
 
     const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     bg.setAttribute('x', String(boxX));
