@@ -107,8 +107,10 @@
     };
     if (textArea instanceof HTMLTextAreaElement) {
       const { combined } = buildInitialFromSelections();
-      const existing = (saved || '').trim();
-      textArea.value = existing ? `${combined} ${existing}` : combined;
+      const existingRaw = (saved || '');
+      const existing = existingRaw.trim();
+      // 既存が空でも末尾に半角スペースを付与して編集を続けやすくする
+      textArea.value = existing ? `${combined} ${existing}` : `${combined} `;
       // モバイルでキーボードが出ない対策：即時フォーカス + 選択範囲設定
       try {
         textArea.focus({ preventScroll: true });
