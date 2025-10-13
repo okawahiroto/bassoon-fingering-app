@@ -14,6 +14,7 @@
   </head>
   <body>
     <div id="page-content" aria-label="アプリ本体">
+      <h1 id="app-title">Bassoon Fingering App</h1>
       <!-- バスーンキーのSVGはランタイムで読み込み・インライン挿入 -->
       <div id="bassoon-wrapper" data-src="picture/bassoon_key.svg" aria-label="バスーンキー SVG"></div>
       <!-- 音名と楽譜コントロール -->
@@ -73,10 +74,7 @@
           </select>
         </div>
       </div>
-      <!-- SVG直下の常設メモ入力欄 -->
-      <div id="inline-notes">
-        <textarea id="inline-text-area" aria-label="Notes" placeholder="ここにメモや運指の注記を書いてください" rows="4"></textarea>
-      </div>
+      <!-- 常設のメモ入力欄は削除：モーダルのみ使用 -->
       <div id="controls">
         <button id="memo-btn" type="button" aria-label="メモや注釈を入力">Memo</button>
         <button id="download-btn" type="button" disabled aria-label="運指図を画像としてダウンロード">Download</button>

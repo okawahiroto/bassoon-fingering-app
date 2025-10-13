@@ -98,7 +98,8 @@ body {
 
 #controls {
   width: 100%;
-  margin: 0 auto;
+  /* page-content の gap(8px) + 4px = 合計 12px の上余白 */
+  margin: 4px auto 0;
   display: flex;
   flex-wrap: nowrap;
   gap: 12px; /* 最低間隔を確保しつつ */
