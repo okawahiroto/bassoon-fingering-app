@@ -77,8 +77,38 @@
     if (!(textModal instanceof HTMLElement)) return;
     textModal.hidden = false;
     const saved = getSavedText();
+    // 現在の音名 + オクターブを初期値として用意（Trill ON時はハイフンで連結）
+    const formatNoteWithOct = (label, octNum) => {
+      const parts = String(label || '').split('/')
+        .map((s) => (s || '').trim())
+        .filter(Boolean);
+      return parts.map((p) => `${p}${octNum}`).join('/');
+    };
+    const buildInitialFromSelections = () => {
+      let base = '';
+      if (octaveSelect instanceof HTMLSelectElement && noteSelect instanceof HTMLSelectElement) {
+        const oct = parseInt(octaveSelect.value, 10);
+        const noteLabel = noteSelect.options[noteSelect.selectedIndex]?.textContent || '';
+        base = formatNoteWithOct(noteLabel, isNaN(oct) ? '' : oct);
+      }
+      let trill = '';
+      const trillOn = (trillEnabled instanceof HTMLInputElement) && !!trillEnabled.checked;
+      if (
+        trillOn &&
+        trillOctaveSelect instanceof HTMLSelectElement &&
+        trillNoteSelect instanceof HTMLSelectElement
+      ) {
+        const toct = parseInt(trillOctaveSelect.value, 10);
+        const tlabel = trillNoteSelect.options[trillNoteSelect.selectedIndex]?.textContent || '';
+        trill = formatNoteWithOct(tlabel, isNaN(toct) ? '' : toct);
+      }
+      const combined = trill ? `${base}-${trill}` : base;
+      return { base, trill, combined, trillOn };
+    };
     if (textArea instanceof HTMLTextAreaElement) {
-      textArea.value = saved;
+      const { combined } = buildInitialFromSelections();
+      const existing = (saved || '').trim();
+      textArea.value = existing ? `${combined} ${existing}` : combined;
       // モバイルでキーボードが出ない対策：即時フォーカス + 選択範囲設定
       try {
         textArea.focus({ preventScroll: true });
@@ -160,6 +190,8 @@
       // 純CSSレイアウトにより高さ調整（JSは不要）
 
       // 初期表示で保存済みメモを適用
+      // リフレッシュ時はメモをクリア（LocalStorageのメモを削除）
+      try { localStorage.removeItem(TEXT_KEY); } catch {}
       const initialNotes = getSavedText();
       syncAllTextAreas(initialNotes);
 
@@ -209,26 +241,9 @@
           noteSelect.value = stillExists ? String(current) : String(allowed[0].v);
         };
 
-        // まず新キーから復元
-        const savedIdx = getSavedNoteIndex();
-        const savedOct = getSavedOctave();
-        if (savedOct != null) octaveSelect.value = String(savedOct);
+        // 初期表示はHTMLの初期値をそのまま使用（LocalStorageからは復元しない）
         // オプション構築はオクターブに依存
         rebuildNoteOptions(parseInt(octaveSelect.value, 10));
-        if (savedIdx != null) noteSelect.value = String(savedIdx);
-
-        // 次に旧キーが残っていたら初期化に利用（例: "C#4"）
-        const legacy = getSavedNoteText();
-        if (legacy && (savedIdx == null || savedOct == null)) {
-          const p = parseNoteText(legacy);
-          if (p) {
-            const mapToIndex = noteTextToIndex(p.letter, p.accidental);
-            if (savedOct == null) octaveSelect.value = String(p.octave);
-            // オクターブ変更に伴い再構築
-            rebuildNoteOptions(parseInt(octaveSelect.value, 10));
-            if (savedIdx == null && mapToIndex != null) noteSelect.value = String(mapToIndex);
-          }
-        }
 
         const onChange = () => {
           const oct = parseInt(octaveSelect.value, 10);
