@@ -1,0 +1,18 @@
+{
+  "name": "Bassoon Key App",
+  "short_name": "Bsn Keys",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "description": "Bassoon fingering helper with SVG keys",
+  "icons": [
+    {
+      "src": "picture/bassoon_key.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
+
