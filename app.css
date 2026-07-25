@@ -1,29 +1,104 @@
 body {
   margin: 0;
   min-height: 100svh;
-  display: grid;
-  place-items: center;
   background: #f7f7f7;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family: 'Noto Sans JP', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  /* タップ主体のアプリのため、ダブルタップでの文字選択・ズームを無効化する */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-/* 円は塗り部分のみクリック可能・ポインター表示 */
-#circle {
-  cursor: pointer;
-  pointer-events: visibleFill;
+/* メモ欄だけは通常通りテキスト選択・コピーができるようにする */
+#text-area {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* 画面の高さに合わせた純CSSレイアウト */
+#page-content {
+  /* デスクトップでの表示を大きくする（幅上限を拡大） */
+  width: min(1100px, 96vw);
+  height: 100svh;
+  height: 100dvh; /* 新しい端末で動的アドレスバーにも追随 */
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 8px 0 12px;
+}
+
+/* Title */
+#app-title {
+  text-align: center;
+  margin: 0;
+  font-weight: 400; /* 太字をやめる */
+  font-size: 1.25rem; /* ひとまわり小さく */
 }
 
 /* レイアウト: 上下に並べ、最大幅調整 */
+/* SVGは残り高をすべて使う */
 #bassoon-wrapper {
-  width: min(720px, 92vw);
-  margin-top: 24px;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0; /* flexアイテムが縮められるように */
 }
 
 /* SVGのサイズはラッパー幅に追従 */
 #bassoon-wrapper svg {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%; /* アスペクト比はSVG側で保持される */
+  /* ダブルタップ操作をブラウザのズーム/文字選択ではなくアプリ側のタップとして扱う */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* モバイルでは横幅・余白を目一杯使う */
+@media (max-width: 768px) {
+  #page-content { width: 100vw; padding: 0; }
+}
+
+/* 音名と楽譜コントロール */
+#note-controls {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px; /* 行間 8px / 列間 12px */
+  margin: 4px 0 0;
+}
+#note-controls .control-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap; /* グループ内は改行しない */
+}
+.control-group.main-group { margin-right: 4px; }
+.control-group.trill-group { margin-left: 4px; }
+#note-controls label { font-size: 14px; color: #333; }
+#note-controls .checkbox { display: inline-flex; align-items: center; gap: 6px; }
+/* Bootstrapの見た目を活かすため、セレクトの枠線/パディング指定は外す */
+#octave-select,
+#note-select,
+#trill-octave-select,
+#trill-note-select {
+  box-sizing: border-box;
+  font-size: 14px;
+}
+
+/* セレクトの最大幅を個別指定 */
+#octave-select { min-width: 72px; max-width: 72px; padding-right: 2rem; flex: 0 0 auto; }
+#note-select { min-width: 96px; max-width: 96px; padding-right: 2rem; flex: 0 0 auto; }
+/* Trill用セレクトにも同じ制限を適用 */
+#trill-octave-select { min-width: 72px; max-width: 72px; padding-right: 2rem; flex: 0 0 auto; }
+#trill-note-select { min-width: 96px; max-width: 96px; padding-right: 2rem; flex: 0 0 auto; }
+#note-controls .help {
+  width: 100%;
+  font-size: 12px;
+  color: #666;
 }
 
 /* 図形の内側のみクリック可能にする */
@@ -35,16 +110,25 @@ body {
 #bassoon-wrapper polyline {
   pointer-events: fill;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #controls {
-  width: min(720px, 92vw);
-  margin: 12px auto 24px;
+  width: 100%;
+  /* page-content の gap(8px) + 4px = 合計 12px の上余白 */
+  margin: 4px auto 0;
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 12px; /* 最低間隔を確保しつつ */
+  justify-content: space-between; /* 内側の間隔を等間隔に */
+  padding: 0 12px; /* 外側左右に最低12pxの余白 */
 }
 
-#download-btn {
+.control-btn,
+#download-btn,
+#share-btn,
+#text-close-btn {
   appearance: none;
   border: 1px solid #d0d0d0;
   background: white;
@@ -59,4 +143,164 @@ body {
 #download-btn:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+/* 左右のボタンを同サイズにする */
+#download-btn,
+#share-btn {
+  min-width: 140px;
+  text-align: center;
+}
+
+/* モーダル */
+#text-modal[hidden] { display: none; }
+#text-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  /* 背景を暗くしない（クリックブロック用途のみ） */
+  background: transparent;
+  z-index: 1000;
+  /* 背景は操作対象にしない。誤って前面に出てもクリックを阻害しない */
+  pointer-events: none;
+}
+.modal-dialog {
+  position: fixed;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, 0);
+  width: min(720px, 100vw);
+  max-height: 100dvh;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  overflow: hidden;
+  z-index: 1001; /* バックドロップより上に */
+  pointer-events: auto;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+}
+.modal-actions { display: flex; gap: 8px; align-items: center; }
+.modal-body {
+  padding: 12px 16px 16px;
+  overflow: auto;
+  max-height: calc(100dvh - 60px); /* ヘッダーを除いた高さでスクロール */
+}
+#text-area {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  font-family: 'Noto Sans JP', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+/* モーダルのボタンも同じ見た目に */
+#text-delete-btn,
+#text-close-btn {
+  appearance: none;
+  border: 1px solid #d0d0d0;
+  background: white;
+  color: #222;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* モバイルや低い画面では余白・サイズを圧縮 */
+@media (max-width: 480px), (max-height: 720px) {
+  #page-content { gap: 6px; padding: 6px 0 10px; }
+  #note-controls { gap: 6px 8px; }
+  #note-controls .control-group { gap: 6px; }
+  #note-controls select { padding: .25rem .75rem; font-size: 13px; }
+  #octave-select, #trill-octave-select { min-width: 64px; max-width: 64px; padding-right: 1.9rem; }
+  #note-select, #trill-note-select { min-width: 88px; max-width: 88px; padding-right: 1.9rem; }
+  #download-btn,
+  #share-btn { min-width: 120px; padding: 8px 10px; font-size: 13px; }
+  .modal-dialog { width: 100vw; border-radius: 0; }
+}
+
+/* メモボタンの最小幅 */
+#memo-btn { min-width: 90px; }
+
+/* --- Controls: Buttons priority, size, color, rounding --- */
+/* Order: rightmost Memo (3) ← Share (2) ← Download (1) */
+#download-btn { order: 1; }
+#share-btn { order: 2; }
+#memo-btn { order: 3; }
+
+/* Shape & size */
+#memo-btn,
+#share-btn,
+#download-btn {
+  border-radius: 12px;
+  height: 44px;
+  min-width: 140px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+/* Focus visibility */
+#memo-btn:focus-visible,
+#share-btn:focus-visible,
+#download-btn:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+
+/* Disabled state */
+#memo-btn:disabled,
+#share-btn:disabled,
+#download-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Priority colors */
+/* Memo = Primary (solid) */
+#memo-btn {
+  background: #2563eb;
+  color: #fff;
+  border: 1px solid transparent;
+}
+#memo-btn:hover { background: #1d4ed8; }
+#memo-btn:active { background: #1e40af; }
+
+/* Share = Secondary (outline) */
+#share-btn {
+  background: #fff;
+  color: #2563eb;
+  border: 1px solid #2563eb;
+}
+#share-btn:hover { background: rgba(37, 99, 235, 0.06); }
+#share-btn:active { background: rgba(37, 99, 235, 0.12); }
+
+/* Download = Tertiary/Ghost */
+#download-btn {
+  background: #fff;
+  color: #111827;
+  border: 1px solid #d1d5db;
+}
+#download-btn:hover { background: #f9fafb; }
+#download-btn:active { background: #f3f4f6; }
+
+@media (max-width: 480px), (max-height: 720px) {
+  #controls { gap: 8px; }
+  #memo-btn,
+  #share-btn,
+  #download-btn {
+    height: 40px;
+    min-width: clamp(80px, 28vw, 120px);
+    padding: 0 12px;
+    font-size: 13px;
+  }
 }
