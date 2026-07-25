@@ -3,8 +3,6 @@
 作成日: 2026-07-11。作者(ファゴット奏者)への確認を経て確定。
 `picture/bassoon_key.svg` の各図形に `id` 属性として反映済み。
 
-⚠️ **19番(`high-a`)のみ、作者から名前の直接指定を受けていません。** 他8個の名前が確定した結果、候補リスト(High D/High C/Low Bb/Low B/Low C/Low D/High A/C# Key/Whisper Key)の消去法で「High A」と判断しました。次回作者に一言確認すること。
-
 ## 全29キー
 
 | キーID(SVGのid) | 名称 | 手/指の区分 | 備考 |
@@ -24,7 +22,7 @@
 | `cs-trill` | C# Trill | 右手指 | |
 | `low-e` | Low E | 右手親指 | |
 | `whisper` | Whisper Key | 左手親指 | |
-| `high-a` | High A | 左手親指 | ⚠️未確認(消去法で推定。要確認) |
+| `high-a` | High A | 左手親指 | |
 | `high-d` | High D | 左手親指 | |
 | `bb` | Bb | 右手親指 | |
 | `high-c` | High C | 左手親指 | |

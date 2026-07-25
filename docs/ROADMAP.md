@@ -7,6 +7,8 @@
 姉妹リポジトリ `~/dev/bassoon-fingering`(Expo版)の `docs/ROADMAP.md`(2026-07-09 作成)と対になる文書。
 **データスキーマとシェアURL仕様は両文書で意図的に同一仕様にしてある。片方だけ変更しないこと。**
 
+**進捗管理は GitHub Issues で行う(2026-07-25〜)。** 本文書は設計判断・データスキーマの詳細リファレンス。進捗チェックリストは [Issue #8(進捗管理)](https://github.com/okawahiroto/bassoon-fingering-app/issues/8) と各Phaseの個別Issueを参照。
+
 ---
 
 ## アプリの目的
