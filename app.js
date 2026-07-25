@@ -1,39 +1,10 @@
 (function () {
-  const circle = document.getElementById('circle');
-  if (circle) {
-    const colorSeq = ['black', 'red', 'blue'];
-    circle.addEventListener('click', () => {
-      const raw = circle.getAttribute('data-color-index');
-      if (raw == null) {
-        // none -> black
-        circle.setAttribute('fill', colorSeq[0]);
-        circle.setAttribute('data-color-index', '0');
-      } else {
-        let idx = parseInt(raw, 10);
-        if (Number.isNaN(idx)) idx = -1;
-        if (idx >= 0 && idx < colorSeq.length - 1) {
-          idx += 1;
-          circle.setAttribute('fill', colorSeq[idx]);
-          circle.setAttribute('data-color-index', String(idx));
-        } else {
-          // last -> none
-          circle.setAttribute('fill', 'transparent');
-          circle.removeAttribute('data-color-index');
-        }
-      }
-    });
-  }
-})();
-
-(function () {
   const wrapper = document.getElementById('bassoon-wrapper');
   const downloadBtn = document.getElementById('download-btn');
   const shareBtn = document.getElementById('share-btn');
   const memoBtn = document.getElementById('memo-btn');
-  const textBtn = document.getElementById('text-btn');
   const textModal = document.getElementById('text-modal');
   const textArea = document.getElementById('text-area');
-  const inlineTextArea = document.getElementById('inline-text-area');
   const textCloseBtn = document.getElementById('text-close-btn');
   const textDeleteBtn = document.getElementById('text-delete-btn');
   const octaveSelect = document.getElementById('octave-select');
@@ -45,31 +16,40 @@
   const src = wrapper.getAttribute('data-src');
   if (!src) return;
 
-  const colors = ['black', 'red', 'blue'];
   const TEXT_KEY = 'fingering_text';
   const NOTE_KEY = 'fingering_note_text'; // 互換用（例: "C#4"）
   const NOTE_INDEX_KEY = 'fingering_note_index'; // 0-11
   const OCTAVE_KEY = 'fingering_note_octave'; // 1-5（C1..C5）
 
-  function cycleElementColor(el) {
-    const raw = el.getAttribute('data-color-index');
-    if (raw == null) {
-      // none -> first color (black)
-      el.setAttribute('fill', colors[0]);
-      el.setAttribute('data-color-index', '0');
-      return;
-    }
-    let idx = parseInt(raw, 10);
-    if (!Number.isFinite(idx)) idx = -1;
-    if (idx >= 0 && idx < colors.length - 1) {
-      idx += 1;
-      el.setAttribute('fill', colors[idx]);
-      el.setAttribute('data-color-index', String(idx));
+  // 運指データ(スキーマv1)。SVGの色はここから描画し、DOMの色を正としない。
+  // keys: キーID(SVGのid) -> 0=開放(省略可)/1=押す(黒)/2=半開・特殊(青)/3=トリル(赤)
+  const state = { version: 1, note: '', trillNote: null, keys: {}, label: '' };
+
+  // タップ時の見た目の巡回順(黒→赤→青)とスキーマ値(1→3→2)は並びが異なるため対応表で明示する
+  const KEY_CYCLE = [0, 1, 3, 2];
+  const KEY_FILL_BY_VALUE = { 1: 'black', 3: 'red', 2: 'blue' };
+
+  function applyKeyVisual(el, value) {
+    el.setAttribute('fill', KEY_FILL_BY_VALUE[value] || 'transparent');
+  }
+
+  function renderKeys(svg) {
+    svg.querySelectorAll('path[id], circle[id], rect[id], ellipse[id], polygon[id], polyline[id]').forEach((el) => {
+      applyKeyVisual(el, state.keys[el.id] || 0);
+    });
+  }
+
+  function cycleKeyState(el) {
+    const keyId = el.id;
+    if (!keyId) return;
+    const current = state.keys[keyId] || 0;
+    const next = KEY_CYCLE[(KEY_CYCLE.indexOf(current) + 1) % KEY_CYCLE.length];
+    if (next === 0) {
+      delete state.keys[keyId];
     } else {
-      // last color -> none (transparent to keep hit area)
-      el.setAttribute('fill', 'transparent');
-      el.removeAttribute('data-color-index');
+      state.keys[keyId] = next;
     }
+    applyKeyVisual(el, next);
   }
 
   // --- テキストモーダルとLocalStorage ---
@@ -128,6 +108,7 @@
     textModal.hidden = true;
   }
   function saveTextValue(val) {
+    state.label = val || '';
     try {
       localStorage.setItem(TEXT_KEY, val || '');
     } catch (e) {
@@ -137,9 +118,6 @@
   function syncAllTextAreas(val) {
     if (textArea instanceof HTMLTextAreaElement) {
       textArea.value = val;
-    }
-    if (inlineTextArea instanceof HTMLTextAreaElement) {
-      inlineTextArea.value = val;
     }
   }
   function getSavedText() {
@@ -177,6 +155,24 @@
     try { localStorage.setItem(OCTAVE_KEY, String(n)); } catch {}
   }
 
+  // state.note / state.trillNote を現在のセレクト値から同期する
+  function syncNoteState() {
+    if (!(octaveSelect instanceof HTMLSelectElement) || !(noteSelect instanceof HTMLSelectElement)) return;
+    const oct = parseInt(octaveSelect.value, 10);
+    const idx = parseInt(noteSelect.value, 10);
+    state.note = indexAndOctaveToText(idx, oct);
+  }
+  function syncTrillNoteState() {
+    const trillOn = (trillEnabled instanceof HTMLInputElement) && !!trillEnabled.checked;
+    if (!trillOn || !(trillOctaveSelect instanceof HTMLSelectElement) || !(trillNoteSelect instanceof HTMLSelectElement)) {
+      state.trillNote = null;
+      return;
+    }
+    const toct = parseInt(trillOctaveSelect.value, 10);
+    const tidx = parseInt(trillNoteSelect.value, 10);
+    state.trillNote = indexAndOctaveToText(tidx, toct);
+  }
+
   fetch(src)
     .then((res) => res.text())
     .then((svgText) => {
@@ -196,13 +192,17 @@
       try { localStorage.removeItem(TEXT_KEY); } catch {}
       const initialNotes = getSavedText();
       syncAllTextAreas(initialNotes);
+      state.label = initialNotes;
+
+      // state.keys を初期反映（現状は空なので実質ノーオペ。将来の読み込み機能の土台）
+      renderKeys(svg);
 
       svg.addEventListener('click', (ev) => {
         const target = ev.target;
         if (!(target instanceof Element)) return;
         const shape = target.closest('path, rect, circle, ellipse, polygon, polyline');
-        if (shape && svg.contains(shape)) {
-          cycleElementColor(shape);
+        if (shape && svg.contains(shape) && shape.id) {
+          cycleKeyState(shape);
         }
       });
 
@@ -246,6 +246,7 @@
         // 初期表示はHTMLの初期値をそのまま使用（LocalStorageからは復元しない）
         // オプション構築はオクターブに依存
         rebuildNoteOptions(parseInt(octaveSelect.value, 10));
+        syncNoteState();
 
         const onChange = () => {
           const oct = parseInt(octaveSelect.value, 10);
@@ -256,6 +257,7 @@
           // 互換用の文字列も保存（シャープ優先表記）
           const txt = indexAndOctaveToText(idx, oct);
           setSavedNoteText(txt);
+          syncNoteState();
           updateScoreSvg(svg);
         };
         octaveSelect.addEventListener('change', onChange);
@@ -304,6 +306,7 @@
         trillNoteSelect.disabled = !trillEnabled.checked;
         // 初期オプション構築
         rebuildTrillNoteOptions(parseInt(trillOctaveSelect.value, 10) || 3);
+        syncTrillNoteState();
 
         trillEnabled.addEventListener('change', () => {
           const enabled = !!trillEnabled.checked;
@@ -312,14 +315,17 @@
           if (enabled) {
             rebuildTrillNoteOptions(parseInt(trillOctaveSelect.value, 10) || 3);
           }
+          syncTrillNoteState();
           // トグル時にも即時再描画
           updateScoreSvg(svg);
         });
         trillOctaveSelect.addEventListener('change', () => {
           rebuildTrillNoteOptions(parseInt(trillOctaveSelect.value, 10) || 3);
+          syncTrillNoteState();
           updateScoreSvg(svg);
         });
         trillNoteSelect.addEventListener('change', () => {
+          syncTrillNoteState();
           updateScoreSvg(svg);
         });
       }
@@ -397,15 +403,11 @@
         memoBtn.addEventListener('click', openTextModal);
       }
 
-      // Share to X/Copy Image ボタンは廃止（Shareのみ使用）
-
       // Text Input モーダル制御
       if (textCloseBtn instanceof HTMLButtonElement) {
         textCloseBtn.addEventListener('click', () => {
           if (textArea instanceof HTMLTextAreaElement) {
             saveTextValue(textArea.value || '');
-          } else if (inlineTextArea instanceof HTMLTextAreaElement) {
-            saveTextValue(inlineTextArea.value || '');
           }
           closeTextModal();
         });
@@ -421,8 +423,6 @@
             // 外側クリック: 保存して閉じる
             if (textArea instanceof HTMLTextAreaElement) {
               saveTextValue(textArea.value || '');
-            } else if (inlineTextArea instanceof HTMLTextAreaElement) {
-              saveTextValue(inlineTextArea.value || '');
             }
             closeTextModal();
           }
@@ -430,20 +430,7 @@
       }
       if (textArea instanceof HTMLTextAreaElement) {
         textArea.addEventListener('input', () => {
-          const val = textArea.value || '';
-          saveTextValue(val);
-          if (inlineTextArea instanceof HTMLTextAreaElement) {
-            inlineTextArea.value = val;
-          }
-        });
-      }
-      if (inlineTextArea instanceof HTMLTextAreaElement) {
-        inlineTextArea.addEventListener('input', () => {
-          const val = inlineTextArea.value || '';
-          saveTextValue(val);
-          if (textArea instanceof HTMLTextAreaElement) {
-            textArea.value = val;
-          }
+          saveTextValue(textArea.value || '');
         });
       }
       if (textDeleteBtn instanceof HTMLButtonElement) {
@@ -452,9 +439,7 @@
           if (textArea instanceof HTMLTextAreaElement) {
             textArea.value = '';
           }
-          if (inlineTextArea instanceof HTMLTextAreaElement) {
-            inlineTextArea.value = '';
-          }
+          state.label = '';
           try {
             localStorage.removeItem(TEXT_KEY);
           } catch {}
@@ -548,7 +533,6 @@ function exportSvgToPngBlob(currentSvg) {
     }
   });
 }
-// (iOS専用のDataURLフォールバック、およびUA判定は撤去し標準動作に戻しています)
 
 // 文字列の音名を簡易パース（例: C4, F#3, Eb3, G♭2）
 function parseNoteText(s) {
@@ -694,7 +678,7 @@ function updateScoreSvg(svg) {
     clef.setAttribute('font-size', '90');
     clef.setAttribute('fill', '#111');
     // 𝄢 (F clef), 𝄡 (C clef)
-    clef.textContent = useTenor ? '\uD834\uDD21' : '\uD834\uDD22';
+    clef.textContent = useTenor ? '𝄡' : '𝄢';
     g.appendChild(clef);
 
     // 要望によりヘ音記号の2点は描画しない
@@ -883,7 +867,7 @@ function updateScoreSvg(svg) {
     const boxX = Math.max(4, Math.min(svgW - margin - boxW, left));
     let boxY = Math.max(4, margin);
     try {
-      const anchor = svg.querySelector('path[d^="M144 262H196.857C203.011 262"]');
+      const anchor = svg.querySelector('#bb');
       if (anchor) {
         const bb = anchor.getBBox();
         if (bb && Number.isFinite(bb.y)) {
