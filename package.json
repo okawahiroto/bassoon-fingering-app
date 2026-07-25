@@ -1,0 +1,9 @@
+{
+  "name": "bassoon-fingering-app",
+  "private": true,
+  "type": "module",
+  "description": "静的Web版バスーン運指アプリ。ビルド無し・依存パッケージ無し。lib/ 配下の純関数をNodeで単体テストするためだけの設定ファイル。",
+  "scripts": {
+    "test": "node lib/shareUrl.test.js"
+  }
+}
