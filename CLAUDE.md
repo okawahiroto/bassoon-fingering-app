@@ -5,8 +5,9 @@
 
 ## リポジトリ
 
-- リモート(origin): `https://github.com/okawahiroto/bassoonkeyapp.git`
-- 開発ブランチ: `feature/score-overlay`(mainへのマージは未実施)
+- リモート(origin): `https://github.com/okawahiroto/bassoon-fingering-app.git`(2026-07-25に `bassoonkeyapp` から改名)
+- 開発ブランチ: `main`(直接開発。feature/score-overlayは2026-07-25にmainへマージ・削除済み)
+- 進捗管理: GitHub Issues(#1〜#8)。`docs/ROADMAP.md` は設計判断・データスキーマの詳細リファレンス
 
 ## 構成
 
