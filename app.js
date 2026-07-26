@@ -12,18 +12,88 @@
   const trillEnabled = document.getElementById('trill-enabled');
   const trillOctaveSelect = document.getElementById('trill-octave-select');
   const trillNoteSelect = document.getElementById('trill-note-select');
+  const saveBtn = document.getElementById('save-btn');
+  const libraryBtn = document.getElementById('library-btn');
+  const libraryModal = document.getElementById('library-modal');
+  const libraryList = document.getElementById('library-list');
+  const libraryEmptyMessage = document.getElementById('library-empty-message');
+  const libraryFilterInput = document.getElementById('library-filter-input');
+  const libraryCloseBtn = document.getElementById('library-close-btn');
+  const libraryExportBtn = document.getElementById('library-export-btn');
+  const libraryImportInput = document.getElementById('library-import-input');
   if (!wrapper) return;
   const src = wrapper.getAttribute('data-src');
   if (!src) return;
 
-  const TEXT_KEY = 'fingering_text';
-  const NOTE_KEY = 'fingering_note_text'; // 互換用（例: "C#4"）
-  const NOTE_INDEX_KEY = 'fingering_note_index'; // 0-11
-  const OCTAVE_KEY = 'fingering_note_octave'; // 1-5（C1..C5）
+  const CURRENT_KEY = 'fingering_current'; // 編集中のstate(スキーマv1)。リロード時の復元に使う
+  const LIBRARY_KEY = 'fingering_library'; // 保存済み運指の配列（{id, createdAt} + スキーマv1）
 
   // 運指データ(スキーマv1)。SVGの色はここから描画し、DOMの色を正としない。
   // keys: キーID(SVGのid) -> 0=開放(省略可)/1=押す(黒)/2=半開・特殊(青)/3=トリル(赤)
   const state = { version: 1, note: '', trillNote: null, keys: {}, label: '' };
+
+  // --- 編集中stateの永続化(リロード時の復元用) ---
+  function saveCurrentDraft() {
+    try { localStorage.setItem(CURRENT_KEY, JSON.stringify(state)); } catch {}
+  }
+  function loadCurrentDraft() {
+    try {
+      const raw = localStorage.getItem(CURRENT_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return (parsed && typeof parsed === 'object') ? parsed : null;
+    } catch { return null; }
+  }
+
+  // --- マイライブラリ（保存済み運指の配列）---
+  function randomId() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+  function loadLibrary() {
+    try {
+      const raw = localStorage.getItem(LIBRARY_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  }
+  function saveLibrary(list) {
+    try { localStorage.setItem(LIBRARY_KEY, JSON.stringify(list)); } catch {}
+  }
+  // keysオブジェクトをキー順に整列した文字列にする（インポート時の重複判定に使う）
+  function canonicalKeysString(keys) {
+    return Object.keys(keys || {}).filter((k) => keys[k]).sort()
+      .map((k) => `${k}=${keys[k]}`).join(',');
+  }
+  function addLibraryEntry(srcState) {
+    const list = loadLibrary();
+    const entry = {
+      id: randomId(),
+      version: srcState.version || 1,
+      note: srcState.note || '',
+      trillNote: srcState.trillNote || null,
+      keys: { ...(srcState.keys || {}) },
+      label: srcState.label || '',
+      createdAt: new Date().toISOString(),
+    };
+    list.push(entry);
+    saveLibrary(list);
+    return entry;
+  }
+  function removeLibraryEntry(id) {
+    saveLibrary(loadLibrary().filter((e) => e.id !== id));
+  }
+  function duplicateLibraryEntry(id) {
+    const list = loadLibrary();
+    const srcEntry = list.find((e) => e.id === id);
+    if (!srcEntry) return null;
+    const copy = { ...srcEntry, id: randomId(), createdAt: new Date().toISOString() };
+    list.push(copy);
+    saveLibrary(list);
+    return copy;
+  }
 
   // タップ時の見た目の巡回順(黒→赤→青)とスキーマ値(1→3→2)は並びが異なるため対応表で明示する
   const KEY_CYCLE = [0, 1, 3, 2];
@@ -50,6 +120,7 @@
       state.keys[keyId] = next;
     }
     applyKeyVisual(el, next);
+    saveCurrentDraft();
   }
 
   // --- テキストモーダルとLocalStorage ---
@@ -109,11 +180,7 @@
   }
   function saveTextValue(val) {
     state.label = val || '';
-    try {
-      localStorage.setItem(TEXT_KEY, val || '');
-    } catch (e) {
-      // ignore
-    }
+    saveCurrentDraft();
   }
   function syncAllTextAreas(val) {
     if (textArea instanceof HTMLTextAreaElement) {
@@ -121,38 +188,7 @@
     }
   }
   function getSavedText() {
-    try {
-      return localStorage.getItem(TEXT_KEY) || '';
-    } catch {
-      return '';
-    }
-  }
-
-  function getSavedNoteText() {
-    try { return localStorage.getItem(NOTE_KEY) || ''; } catch { return ''; }
-  }
-  function setSavedNoteText(v) {
-    try { localStorage.setItem(NOTE_KEY, v || ''); } catch {}
-  }
-  function getSavedNoteIndex() {
-    try {
-      const s = localStorage.getItem(NOTE_INDEX_KEY);
-      const n = s == null ? NaN : parseInt(s, 10);
-      return Number.isFinite(n) ? n : null;
-    } catch { return null; }
-  }
-  function setSavedNoteIndex(n) {
-    try { localStorage.setItem(NOTE_INDEX_KEY, String(n)); } catch {}
-  }
-  function getSavedOctave() {
-    try {
-      const s = localStorage.getItem(OCTAVE_KEY);
-      const n = s == null ? NaN : parseInt(s, 10);
-      return Number.isFinite(n) ? n : null;
-    } catch { return null; }
-  }
-  function setSavedOctave(n) {
-    try { localStorage.setItem(OCTAVE_KEY, String(n)); } catch {}
+    return state.label || '';
   }
 
   // state.note / state.trillNote を現在のセレクト値から同期する
@@ -187,15 +223,21 @@
 
       // 純CSSレイアウトにより高さ調整（JSは不要）
 
-      // 初期表示で保存済みメモを適用
-      // リフレッシュ時はメモをクリア（LocalStorageのメモを削除）
-      try { localStorage.removeItem(TEXT_KEY); } catch {}
-      const initialNotes = getSavedText();
-      syncAllTextAreas(initialNotes);
-      state.label = initialNotes;
-
-      // state.keys を初期反映（現状は空なので実質ノーオペ。将来の読み込み機能の土台）
+      // 前回編集していた運指(state.keys/note/trillNote/label)をLocalStorageから復元する
+      const draft = loadCurrentDraft();
+      if (draft) {
+        state.version = draft.version || 1;
+        state.note = draft.note || '';
+        state.trillNote = draft.trillNote || null;
+        state.keys = { ...(draft.keys || {}) };
+        state.label = draft.label || '';
+      }
+      syncAllTextAreas(state.label || '');
       renderKeys(svg);
+
+      // note-select用の再構築関数はif内で定義されるため、後段(ライブラリ読込)から
+      // 参照できるよう外側のletに代入する形にする
+      let rebuildNoteOptions;
 
       svg.addEventListener('click', (ev) => {
         const target = ev.target;
@@ -210,7 +252,7 @@
       // セレクトへの保存値の反映（旧バージョンのテキスト保存も考慮）
       if (octaveSelect instanceof HTMLSelectElement && noteSelect instanceof HTMLSelectElement) {
         // ノートセレクトの内容をオクターブに応じて再構築
-        const rebuildNoteOptions = (oct) => {
+        rebuildNoteOptions = (oct) => {
           const entriesAllDesc = [
             { v: 11, label: 'B' },
             { v: 10, label: 'A#/Bb' },
@@ -243,21 +285,20 @@
           noteSelect.value = stillExists ? String(current) : String(allowed[0].v);
         };
 
-        // 初期表示はHTMLの初期値をそのまま使用（LocalStorageからは復元しない）
-        // オプション構築はオクターブに依存
-        rebuildNoteOptions(parseInt(octaveSelect.value, 10));
+        // draftに音名があれば復元。無ければHTMLの初期値をそのまま使用
+        const restored = draft && draft.note
+          ? applyNoteToSelects(draft.note, octaveSelect, noteSelect, rebuildNoteOptions)
+          : false;
+        if (!restored) {
+          rebuildNoteOptions(parseInt(octaveSelect.value, 10));
+        }
         syncNoteState();
 
         const onChange = () => {
           const oct = parseInt(octaveSelect.value, 10);
           rebuildNoteOptions(oct);
-          const idx = parseInt(noteSelect.value, 10);
-          setSavedNoteIndex(idx);
-          setSavedOctave(oct);
-          // 互換用の文字列も保存（シャープ優先表記）
-          const txt = indexAndOctaveToText(idx, oct);
-          setSavedNoteText(txt);
           syncNoteState();
+          saveCurrentDraft();
           updateScoreSvg(svg);
         };
         octaveSelect.addEventListener('change', onChange);
@@ -301,11 +342,16 @@
       if (trillEnabled instanceof HTMLInputElement &&
           trillOctaveSelect instanceof HTMLSelectElement &&
           trillNoteSelect instanceof HTMLSelectElement) {
-        // 初期状態は非活性のまま
+        // draftにtrillNoteがあれば復元
+        const restoredTrill = draft && draft.trillNote
+          ? applyNoteToSelects(draft.trillNote, trillOctaveSelect, trillNoteSelect, rebuildTrillNoteOptions)
+          : false;
+        trillEnabled.checked = restoredTrill;
         trillOctaveSelect.disabled = !trillEnabled.checked;
         trillNoteSelect.disabled = !trillEnabled.checked;
-        // 初期オプション構築
-        rebuildTrillNoteOptions(parseInt(trillOctaveSelect.value, 10) || 3);
+        if (!restoredTrill) {
+          rebuildTrillNoteOptions(parseInt(trillOctaveSelect.value, 10) || 3);
+        }
         syncTrillNoteState();
 
         trillEnabled.addEventListener('change', () => {
@@ -316,16 +362,19 @@
             rebuildTrillNoteOptions(parseInt(trillOctaveSelect.value, 10) || 3);
           }
           syncTrillNoteState();
+          saveCurrentDraft();
           // トグル時にも即時再描画
           updateScoreSvg(svg);
         });
         trillOctaveSelect.addEventListener('change', () => {
           rebuildTrillNoteOptions(parseInt(trillOctaveSelect.value, 10) || 3);
           syncTrillNoteState();
+          saveCurrentDraft();
           updateScoreSvg(svg);
         });
         trillNoteSelect.addEventListener('change', () => {
           syncTrillNoteState();
+          saveCurrentDraft();
           updateScoreSvg(svg);
         });
       }
@@ -395,6 +444,215 @@
         });
       }
 
+      // Saveボタン: 現在の運指をライブラリ(LocalStorage)へ保存
+      if (saveBtn instanceof HTMLButtonElement) {
+        saveBtn.addEventListener('click', () => {
+          addLibraryEntry(state);
+          try { alert('ライブラリに保存しました'); } catch {}
+        });
+      }
+
+      // state(keys/note/trillNote/label)をUIへ反映する。ライブラリからの読込で使う
+      function applyStateToUI() {
+        renderKeys(svg);
+        syncAllTextAreas(state.label || '');
+
+        if (state.note) {
+          applyNoteToSelects(state.note, octaveSelect, noteSelect, rebuildNoteOptions);
+        }
+        syncNoteState();
+
+        const hasTrill = !!state.trillNote;
+        if (trillEnabled instanceof HTMLInputElement) {
+          trillEnabled.checked = hasTrill;
+          if (trillOctaveSelect instanceof HTMLSelectElement) trillOctaveSelect.disabled = !hasTrill;
+          if (trillNoteSelect instanceof HTMLSelectElement) trillNoteSelect.disabled = !hasTrill;
+        }
+        if (hasTrill) {
+          applyNoteToSelects(state.trillNote, trillOctaveSelect, trillNoteSelect, rebuildTrillNoteOptions);
+        }
+        syncTrillNoteState();
+
+        updateScoreSvg(svg);
+      }
+
+      function loadEntryIntoState(entry) {
+        state.version = entry.version || 1;
+        state.note = entry.note || '';
+        state.trillNote = entry.trillNote || null;
+        state.keys = { ...(entry.keys || {}) };
+        state.label = entry.label || '';
+        applyStateToUI();
+        saveCurrentDraft();
+      }
+
+      function openLibraryModal() {
+        if (!(libraryModal instanceof HTMLElement)) return;
+        renderLibraryList();
+        libraryModal.hidden = false;
+      }
+      function closeLibraryModal() {
+        if (!(libraryModal instanceof HTMLElement)) return;
+        libraryModal.hidden = true;
+      }
+
+      function renderLibraryList() {
+        if (!(libraryList instanceof HTMLElement)) return;
+        const filter = (libraryFilterInput instanceof HTMLInputElement ? libraryFilterInput.value : '').trim().toLowerCase();
+        const list = loadLibrary().slice().sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        const filtered = filter ? list.filter((e) => (e.note || '').toLowerCase().includes(filter)) : list;
+
+        libraryList.innerHTML = '';
+        if (libraryEmptyMessage instanceof HTMLElement) {
+          libraryEmptyMessage.hidden = filtered.length > 0;
+        }
+        filtered.forEach((entry) => {
+          const li = document.createElement('li');
+
+          const info = document.createElement('div');
+          info.className = 'library-item-info';
+          const noteLine = document.createElement('div');
+          noteLine.className = 'library-item-note';
+          noteLine.textContent = entry.trillNote ? `${entry.note} → ${entry.trillNote}` : (entry.note || '(無題)');
+          const labelLine = document.createElement('div');
+          labelLine.className = 'library-item-label';
+          labelLine.textContent = entry.label || '';
+          info.appendChild(noteLine);
+          info.appendChild(labelLine);
+
+          const actions = document.createElement('div');
+          actions.className = 'library-item-actions';
+
+          const loadBtn = document.createElement('button');
+          loadBtn.type = 'button';
+          loadBtn.textContent = '読込';
+          loadBtn.setAttribute('aria-label', `${entry.note || ''}を読み込む`);
+          loadBtn.addEventListener('click', () => {
+            loadEntryIntoState(entry);
+            closeLibraryModal();
+          });
+
+          const dupBtn = document.createElement('button');
+          dupBtn.type = 'button';
+          dupBtn.textContent = '複製';
+          dupBtn.setAttribute('aria-label', `${entry.note || ''}を複製`);
+          dupBtn.addEventListener('click', () => {
+            duplicateLibraryEntry(entry.id);
+            renderLibraryList();
+          });
+
+          // iOS Safariの「ホーム画面に追加」(standalone)ではwindow.confirm()が
+          // 表示されず常にキャンセル扱いになるため、native dialogに頼らず
+          // ボタン自体で2段階確認する(1回目は警告表示、3秒以内の2回目で削除確定)。
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'library-delete-btn';
+          delBtn.textContent = '削除';
+          delBtn.setAttribute('aria-label', `${entry.note || ''}を削除`);
+          let pendingDelete = false;
+          let revertTimer = null;
+          delBtn.addEventListener('click', () => {
+            if (!pendingDelete) {
+              pendingDelete = true;
+              delBtn.textContent = '本当に削除？';
+              revertTimer = setTimeout(() => {
+                pendingDelete = false;
+                delBtn.textContent = '削除';
+              }, 3000);
+              return;
+            }
+            clearTimeout(revertTimer);
+            removeLibraryEntry(entry.id);
+            renderLibraryList();
+          });
+
+          actions.appendChild(loadBtn);
+          actions.appendChild(dupBtn);
+          actions.appendChild(delBtn);
+          li.appendChild(info);
+          li.appendChild(actions);
+          libraryList.appendChild(li);
+        });
+      }
+
+      if (libraryBtn instanceof HTMLButtonElement) {
+        libraryBtn.addEventListener('click', openLibraryModal);
+      }
+      if (libraryCloseBtn instanceof HTMLButtonElement) {
+        libraryCloseBtn.addEventListener('click', closeLibraryModal);
+      }
+      if (libraryModal instanceof HTMLElement) {
+        // captureフェーズで判定する: 削除/複製は一覧を再描画してクリックされたボタン自体を
+        // DOMから外すため、bubbleフェーズで判定するとe.targetが既に切り離されていて
+        // dialog.contains(t)が誤ってfalseになり、モーダルが意図せず閉じてしまう。
+        libraryModal.addEventListener('click', (e) => {
+          const dialog = libraryModal.querySelector('.modal-dialog');
+          const t = e.target;
+          if (!(dialog instanceof HTMLElement) || !(t instanceof HTMLElement)) return;
+          if (!dialog.contains(t)) closeLibraryModal();
+        }, { capture: true });
+      }
+      if (libraryFilterInput instanceof HTMLInputElement) {
+        libraryFilterInput.addEventListener('input', renderLibraryList);
+      }
+
+      if (libraryExportBtn instanceof HTMLButtonElement) {
+        libraryExportBtn.addEventListener('click', () => {
+          const envelope = { version: 1, fingerings: loadLibrary() };
+          const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' });
+          const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `fingering_library_${ymd}.json`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        });
+      }
+
+      if (libraryImportInput instanceof HTMLInputElement) {
+        libraryImportInput.addEventListener('change', () => {
+          const file = libraryImportInput.files && libraryImportInput.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const parsed = JSON.parse(String(reader.result || ''));
+              const incoming = Array.isArray(parsed && parsed.fingerings) ? parsed.fingerings : null;
+              if (!incoming) throw new Error('invalid envelope');
+              const existing = loadLibrary();
+              const seen = new Set(existing.map((e) => `${e.note || ''}|${e.trillNote || ''}|${canonicalKeysString(e.keys)}`));
+              let imported = 0, skipped = 0;
+              incoming.forEach((item) => {
+                if (!item || typeof item !== 'object') return;
+                const sig = `${item.note || ''}|${item.trillNote || ''}|${canonicalKeysString(item.keys)}`;
+                if (seen.has(sig)) { skipped++; return; }
+                existing.push({
+                  id: randomId(),
+                  version: item.version || 1,
+                  note: item.note || '',
+                  trillNote: item.trillNote || null,
+                  keys: { ...(item.keys || {}) },
+                  label: item.label || '',
+                  createdAt: item.createdAt || new Date().toISOString(),
+                });
+                seen.add(sig);
+                imported++;
+              });
+              saveLibrary(existing);
+              renderLibraryList();
+              try { alert(`${imported}件インポートしました(重複${skipped}件はスキップ)`); } catch {}
+            } catch (e) {
+              try { alert('インポートに失敗しました。JSONファイルの形式を確認してください。'); } catch {}
+            } finally {
+              libraryImportInput.value = '';
+            }
+          };
+          reader.readAsText(file);
+        });
+      }
+
       // Memoボタンでメモ用モーダルを開く
       if (memoBtn instanceof HTMLButtonElement) {
         memoBtn.disabled = false;
@@ -440,9 +698,7 @@
             textArea.value = '';
           }
           state.label = '';
-          try {
-            localStorage.removeItem(TEXT_KEY);
-          } catch {}
+          saveCurrentDraft();
           if (textArea instanceof HTMLTextAreaElement) {
             textArea.focus();
           }
@@ -557,6 +813,22 @@ function noteTextToIndex(letter, accidental) {
   if (accidental === '#') return (baseIndex + 1) % 12;
   if (accidental === 'b') return (baseIndex + 11) % 12;
   return baseIndex;
+}
+
+// 音名文字列(例:"C#4")をパースし、オクターブ/音名セレクトへ反映する。
+// rebuildFn はオクターブ変更時のセレクト内容再構築関数(rebuildNoteOptions/rebuildTrillNoteOptions)。
+// 反映できた場合はtrueを返す。
+function applyNoteToSelects(noteText, octaveSelectEl, noteSelectEl, rebuildFn) {
+  if (!noteText || !(octaveSelectEl instanceof HTMLSelectElement) || !(noteSelectEl instanceof HTMLSelectElement)) {
+    return false;
+  }
+  const parsed = parseNoteText(noteText);
+  if (!parsed) return false;
+  octaveSelectEl.value = String(parsed.octave);
+  if (typeof rebuildFn === 'function') rebuildFn(parsed.octave);
+  const idx = noteTextToIndex(parsed.letter, parsed.accidental);
+  if (idx != null) noteSelectEl.value = String(idx);
+  return true;
 }
 
 // 半音インデックスとオクターブから文字列（例: C#4）

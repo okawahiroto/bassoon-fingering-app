@@ -77,6 +77,8 @@
       </div>
       <!-- 常設のメモ入力欄は削除：モーダルのみ使用 -->
       <div id="controls">
+        <button id="library-btn" type="button" aria-label="保存済みライブラリを開く">Library</button>
+        <button id="save-btn" type="button" aria-label="現在の運指をライブラリに保存">Save</button>
         <button id="memo-btn" type="button" aria-label="メモや注釈を入力">Memo</button>
         <button id="download-btn" type="button" disabled aria-label="運指図を画像としてダウンロード">Download</button>
         <button id="share-btn" type="button" disabled aria-label="SNSに画像とメモを共有">Share</button>
@@ -95,6 +97,26 @@
         </div>
         <div class="modal-body">
           <textarea id="text-area" placeholder="ここにメモや運指の注記を書いてください" rows="4"></textarea>
+        </div>
+      </div>
+    </div>
+    <!-- マイライブラリ モーダル -->
+    <div id="library-modal" role="dialog" aria-modal="true" aria-labelledby="library-modal-title" hidden>
+      <div class="modal-backdrop" data-close="true"></div>
+      <div class="modal-dialog" role="document">
+        <div class="modal-header">
+          <h2 id="library-modal-title">Library</h2>
+          <div class="modal-actions">
+            <button id="library-export-btn" type="button" aria-label="ライブラリをJSONでエクスポート">Export</button>
+            <label id="library-import-label" for="library-import-input" aria-label="JSONファイルからライブラリをインポート">Import</label>
+            <input id="library-import-input" type="file" accept="application/json" hidden />
+            <button id="library-close-btn" type="button" aria-label="モーダルを閉じる">Close</button>
+          </div>
+        </div>
+        <div class="modal-body">
+          <input id="library-filter-input" type="text" placeholder="音名で絞り込み(例: C4)" aria-label="音名で絞り込み" />
+          <ul id="library-list"></ul>
+          <p id="library-empty-message" hidden>保存された運指はまだありません。</p>
         </div>
       </div>
     </div>
