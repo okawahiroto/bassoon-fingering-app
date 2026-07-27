@@ -51,16 +51,18 @@
   - PNGダウンロード / Web Share API による画像+テキスト共有(`#BsnFingApp` タグ自動付与、非対応環境へのフォールバックあり)
 - **できていないこと(核心)**: 運指が「データ」として存在しない。状態はSVGのDOM上の色属性のみで、保存・復元・URLシェア・クラウド化がすべて不可能。リロードで運指もメモも消える(メモは起動時に意図的に消している)。機能3・4はゼロ地点。
 
+> **2026-07-27追記**: 上記は2026-07-11時点のスナップショット(履歴として残す)。その後 Phase 0(データ化)・Phase 1(マイライブラリ)・Phase 2(シェアの完成)が完了し、上記の「できていないこと」は解消済み。リモートは `github.com/okawahiroto/bassoon-fingering-app`(パブリック)、公開URLは https://okawahiroto.github.io/bassoon-fingering-app/ 。最新状況は各Phaseセクションと GitHub Issues を参照。
+
 ## 現状コードの問題点(重要度順)
 
 1. **運指がシリアライズ(データ化)できない**(最重要)。SVGの形状に `id` が無く、状態は各形状の `fill` / `data-color-index` 属性のみ(`app.js` の `cycleElementColor`)。キーIDを付与し、状態をJSオブジェクト(下記スキーマv1)で一元管理し、SVGは「表示」に徹する構造へ変える。機能2のURLシェア・機能3・4すべての前提。→ Phase 0
 2. **保存機能が無い**。リロードで全部消える。メモは起動時に `localStorage.removeItem(TEXT_KEY)` で明示的に消している(`app.js:196`)。機能3の中核。→ Phase 1
 3. **音名が運指と構造的に結びついていない**。音名はメモ欄のテキスト先頭に文字列として差し込まれるだけ(`openTextModal` 内)。メモを開かずにシェアすると音名がテキストに入らない。スキーマv1の `note` フィールドで常時保持する。→ Phase 0
-4. **PNG書き出しが画面解像度依存**(`app.js:477` で `getBoundingClientRect` を使用)。スマホだと低解像度の画像になる。viewBox 基準の固定解像度(例: 2〜3倍)で描画する。→ Phase 2
+4. ✅(Phase 2)**PNG書き出しが画面解像度依存**だった問題を解消。viewBox×2.5倍の固定解像度で描画するようにした。
 5. **凡例の位置決めが壊れやすい**(`app.js:886`)。`path[d^="M144 262H196.857..."]` とパスの d 属性先頭一致で位置決めしており、SVGを差し替えると黙って壊れる。Phase 0 で id を付けたら `#キーID` 参照に変える。
 6. デッドコードの整理: `app.js:1-26` の `#circle` ブロック(該当要素はもう無い)、`inlineTextArea` / `textBtn` 関連(HTMLから削除済みの要素への参照)、`app.css:31-34`(`#circle`)、`app.css:119-136`(`#inline-notes` 系)。
 7. 未コミットの `index.html:37` に全角中黒「・」が混入している(`</option>・`)。事故と思われる。削除してからコミットすること。
-8. ダウンロードファイル名が固定 `fingering.png`。音名入り(`fingering_Cs4.png` 形式)にする。→ Phase 2
+8. ✅(Phase 2)ダウンロードファイル名を `fingering_Cs4.png` 形式(音名入り)にした。
 9. PWAとして不完全: Service Worker が無くオフラインで動かない。Bootstrap と Google Fonts をCDNから読んでいるためオフラインで崩れる。manifest のアイコンが運指図SVGの流用。優先度低。→ Phase 3
 10. ✅(2026-07-26)`README.md` を作成。リポジトリの説明・使い方・構成・一本化方針を記載済み。
 
@@ -139,15 +141,16 @@ Phase 0 で全キー形状に id を付与し、`docs/KEYMAP.md` に「id ↔ �
 
 完了条件: 運指を複数件保存 → ブラウザ再起動 → 一覧から呼び出せる。エクスポート → 全削除 → インポートで完全復元できる。→ **ブラウザでの手動検証で確認済み**(保存・リロード復元・一覧・フィルタ・読込・複製・削除・エクスポート/インポートの重複スキップを含む)。
 
-## Phase 2: シェアの完成(機能2)
+## Phase 2: シェアの完成(機能2) — ✅完了(2026-07-27)
 
-1. ホスティング確認: GitHub Pages(または Netlify/Vercel)で公開されていることを確認。未公開なら GitHub Pages を有効化し、安定したURLを確保する(URLシェアの前提)。
-2. URLシェア: 「リンクをコピー」ボタン(`lib/shareUrl.js` 使用)。アプリ起動時にクエリパラメータがあれば state を復元して表示し、「ライブラリに保存」ボタンを出す。
-3. 画像品質: viewBox×2以上の固定解像度でPNG書き出し(問題点4)。画像内に音名テキストとアプリのURLを焼き込む(画像だけ見た人がアプリに辿り着けるようにする=拡散導線)。ファイル名は `fingering_Cs4.png` 形式。
-4. Web Share の text にシェアURLも含める。
-5. OGPメタタグ(`og:title` 等。静的サイトなので当面は固定文言でよい)。
+1. ✅ ホスティング確認: リポジトリをパブリック化し、GitHub Pages を有効化(作者承認済み)。公開URL: https://okawahiroto.github.io/bassoon-fingering-app/
+2. ✅ URLシェア: 「Link」ボタンで `lib/shareUrl.js` を使ったシェアURLをクリップボードへコピー(非対応環境は `prompt()` フォールバック)。アプリ起動時にクエリパラメータ(`n`/`k`)があれば state を復元して表示し、バナーで「ライブラリに保存」ボタンを出す。復元後はURLからクエリを除去(`history.replaceState`)。
+   - `app.js` を `<script type="module">` 化し、`lib/shareUrl.js` の `stateToShareQuery`/`searchParamsToState` を import して結線した。
+3. ✅ 画像品質: `exportSvgToPngBlob` を書き直し、viewBox×2.5倍の固定解像度でPNG書き出し(画面サイズに依存しない)。画像下部に音名(トリル時は「C#4 → D#4」形式)とシェアURLを焼き込む(幅に収まらない場合はフォントサイズを自動縮小)。ファイル名は `fingering_Cs4.png` 形式(音名の `#` は `s` に置換)。
+4. ✅ Web Share の text にシェアURLも含めるようにした。
+5. ✅ OGPメタタグ(`og:title`/`og:description`/`og:url`/`twitter:card`)を固定文言で追加。`og:image` は未設定(プレビュー画像が無いため。将来的な課題)。
 
-完了条件: LINE/XでURLを送った相手が、アプリを知らなくてもブラウザで開くだけで同じ運指図を見られ、ワンタップで自分のライブラリに保存できる。
+完了条件: LINE/XでURLを送った相手が、アプリを知らなくてもブラウザで開くだけで同じ運指図を見られ、ワンタップで自分のライブラリに保存できる。→ **ブラウザでの手動検証で確認済み**(共有URLでの復元・音名/トリル復元・バナー保存・Linkコピー・画像への焼き込み・ファイル名を含む)。
 
 ## Phase 3: PWA堅牢化(任意・小粒)
 

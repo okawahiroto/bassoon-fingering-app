@@ -1,3 +1,5 @@
+import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
+
 (function () {
   const wrapper = document.getElementById('bassoon-wrapper');
   const downloadBtn = document.getElementById('download-btn');
@@ -21,6 +23,11 @@
   const libraryCloseBtn = document.getElementById('library-close-btn');
   const libraryExportBtn = document.getElementById('library-export-btn');
   const libraryImportInput = document.getElementById('library-import-input');
+  const linkBtn = document.getElementById('link-btn');
+  const sharedBanner = document.getElementById('shared-banner');
+  const sharedBannerText = document.getElementById('shared-banner-text');
+  const sharedSaveBtn = document.getElementById('shared-save-btn');
+  const sharedDismissBtn = document.getElementById('shared-dismiss-btn');
   if (!wrapper) return;
   const src = wrapper.getAttribute('data-src');
   if (!src) return;
@@ -223,8 +230,26 @@
 
       // 純CSSレイアウトにより高さ調整（JSは不要）
 
+      // URLにシェアクエリ(v/n/k/tn)があれば、ローカルの下書きより優先して復元する
+      let isSharedLoad = false;
+      const sharedParamsRaw = new URLSearchParams(location.search);
+      if (sharedParamsRaw.has('n') || sharedParamsRaw.has('k')) {
+        const shared = searchParamsToState(sharedParamsRaw);
+        if (shared.note || Object.keys(shared.keys || {}).length) {
+          isSharedLoad = true;
+          state.version = shared.version || 1;
+          state.note = shared.note || '';
+          state.trillNote = shared.trillNote || null;
+          state.keys = { ...(shared.keys || {}) };
+          state.label = '';
+        }
+        // URLからクエリを消す（リロード時に毎回同じ共有内容へ戻らないように）
+        try { history.replaceState(null, '', location.pathname); } catch {}
+      }
+
       // 前回編集していた運指(state.keys/note/trillNote/label)をLocalStorageから復元する
-      const draft = loadCurrentDraft();
+      // (共有URLを開いた場合はそちらを優先し、ローカル下書きでは上書きしない)
+      const draft = isSharedLoad ? null : loadCurrentDraft();
       if (draft) {
         state.version = draft.version || 1;
         state.note = draft.note || '';
@@ -234,6 +259,10 @@
       }
       syncAllTextAreas(state.label || '');
       renderKeys(svg);
+
+      if (isSharedLoad && sharedBanner instanceof HTMLElement) {
+        sharedBanner.hidden = false;
+      }
 
       // note-select用の再構築関数はif内で定義されるため、後段(ライブラリ読込)から
       // 参照できるよう外側のletに代入する形にする
@@ -285,9 +314,9 @@
           noteSelect.value = stillExists ? String(current) : String(allowed[0].v);
         };
 
-        // draftに音名があれば復元。無ければHTMLの初期値をそのまま使用
-        const restored = draft && draft.note
-          ? applyNoteToSelects(draft.note, octaveSelect, noteSelect, rebuildNoteOptions)
+        // 共有URL/下書きでstate.noteが既に決まっていれば復元。無ければHTMLの初期値をそのまま使用
+        const restored = state.note
+          ? applyNoteToSelects(state.note, octaveSelect, noteSelect, rebuildNoteOptions)
           : false;
         if (!restored) {
           rebuildNoteOptions(parseInt(octaveSelect.value, 10));
@@ -342,9 +371,9 @@
       if (trillEnabled instanceof HTMLInputElement &&
           trillOctaveSelect instanceof HTMLSelectElement &&
           trillNoteSelect instanceof HTMLSelectElement) {
-        // draftにtrillNoteがあれば復元
-        const restoredTrill = draft && draft.trillNote
-          ? applyNoteToSelects(draft.trillNote, trillOctaveSelect, trillNoteSelect, rebuildTrillNoteOptions)
+        // 共有URL/下書きでstate.trillNoteが既に決まっていれば復元
+        const restoredTrill = state.trillNote
+          ? applyNoteToSelects(state.trillNote, trillOctaveSelect, trillNoteSelect, rebuildTrillNoteOptions)
           : false;
         trillEnabled.checked = restoredTrill;
         trillOctaveSelect.disabled = !trillEnabled.checked;
@@ -381,18 +410,36 @@
       // 初回描画
       updateScoreSvg(svg);
 
+      // 音名を安全なファイル名断片に変換（"#"はURL同様に"s"へ）
+      function noteToFilenameToken(note) {
+        return note ? String(note).replace('#', 's') : '';
+      }
+      function buildFingeringFilename() {
+        const token = noteToFilenameToken(state.note);
+        return `fingering_${token || 'untitled'}.png`;
+      }
+      // 画像に焼き込む文字列(音名+トリル、シェアURL)
+      function buildFooterLines(shareUrl) {
+        const noteLine = state.trillNote ? `${state.note} → ${state.trillNote}` : (state.note || '');
+        const lines = [];
+        if (noteLine) lines.push(noteLine);
+        lines.push(shareUrl);
+        return lines;
+      }
+
       // ダウンロードボタンを有効化
       if (downloadBtn instanceof HTMLButtonElement) {
         downloadBtn.disabled = false;
         downloadBtn.addEventListener('click', () => {
           const currentSvg = document.getElementById('bassoonSvg');
           if (!currentSvg) return;
-          exportSvgToPngBlob(currentSvg)
+          const shareUrl = location.origin + location.pathname + stateToShareQuery(state);
+          exportSvgToPngBlob(currentSvg, { footerLines: buildFooterLines(shareUrl) })
             .then((blob) => {
               if (!blob) return;
               const a = document.createElement('a');
               a.href = URL.createObjectURL(blob);
-              a.download = 'fingering.png';
+              a.download = buildFingeringFilename();
               document.body.appendChild(a);
               a.click();
               a.remove();
@@ -412,14 +459,17 @@
         shareBtn.addEventListener('click', async () => {
           const currentSvg = document.getElementById('bassoonSvg');
           if (!currentSvg) return;
+          const shareUrl = location.origin + location.pathname + stateToShareQuery(state);
           const notes = (getSavedText() || '').trim();
           const tag = '#BsnFingApp';
           const hasTag = new RegExp('(^|\\s)'+tag.replace('#','\\#')+'(\\s|$)').test(notes);
-          const shareText = hasTag ? notes : (notes ? notes + '\n' + tag : tag);
+          const textWithTag = hasTag ? notes : (notes ? notes + '\n' + tag : tag);
+          const shareText = `${textWithTag}\n${shareUrl}`;
+          const filename = buildFingeringFilename();
           try {
-            const blob = await exportSvgToPngBlob(currentSvg);
+            const blob = await exportSvgToPngBlob(currentSvg, { footerLines: buildFooterLines(shareUrl) });
             if (!blob) throw new Error('png blob failed');
-            const file = new File([blob], 'fingering.png', { type: 'image/png' });
+            const file = new File([blob], filename, { type: 'image/png' });
             if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
               await navigator.share({ files: [file], text: shareText });
               return;
@@ -432,7 +482,7 @@
             try { await navigator.clipboard.writeText(shareText); } catch {}
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = 'fingering.png';
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -449,6 +499,38 @@
         saveBtn.addEventListener('click', () => {
           addLibraryEntry(state);
           try { alert('ライブラリに保存しました'); } catch {}
+        });
+      }
+
+      // 共有URLで開いた時のバナー: 保存 / 閉じる
+      if (sharedSaveBtn instanceof HTMLButtonElement) {
+        sharedSaveBtn.addEventListener('click', () => {
+          addLibraryEntry(state);
+          if (sharedBanner instanceof HTMLElement) sharedBanner.hidden = true;
+          try { alert('ライブラリに保存しました'); } catch {}
+        });
+      }
+      if (sharedDismissBtn instanceof HTMLButtonElement) {
+        sharedDismissBtn.addEventListener('click', () => {
+          if (sharedBanner instanceof HTMLElement) sharedBanner.hidden = true;
+        });
+      }
+
+      // Linkボタン: 現在の運指のシェアURLをクリップボードへコピー
+      if (linkBtn instanceof HTMLButtonElement) {
+        linkBtn.addEventListener('click', async () => {
+          const shareUrl = location.origin + location.pathname + stateToShareQuery(state);
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(shareUrl);
+              alert('リンクをコピーしました');
+            } else {
+              throw new Error('clipboard API unavailable');
+            }
+          } catch (e) {
+            // クリップボードAPIが使えない環境向けのフォールバック
+            try { prompt('このURLをコピーしてください', shareUrl); } catch {}
+          }
         });
       }
 
@@ -712,28 +794,40 @@
 })();
 
 // SVG -> PNG Blob 変換
-function exportSvgToPngBlob(currentSvg) {
+// 指定幅に収まるまでフォントサイズを縮める(最小値まで)
+function fitFontSize(ctx, text, maxWidth, startPx, minPx, fontFamily) {
+  let px = startPx;
+  while (px > minPx) {
+    ctx.font = `${px}px ${fontFamily}`;
+    if (ctx.measureText(text).width <= maxWidth) break;
+    px -= 1;
+  }
+  return px;
+}
+
+// SVG -> PNG Blob 変換。viewBox基準の固定解像度で書き出すため、画面サイズに依存しない。
+// options.scale: viewBoxに対する倍率(既定2.5倍。2倍以上を維持し画質を確保する)
+// options.footerLines: 画像下部に焼き込むテキスト行(1行目=音名、2行目=シェアURL 等)
+function exportSvgToPngBlob(currentSvg, options = {}) {
+  const scale = options.scale || 2.5;
+  const footerLines = options.footerLines || [];
   return new Promise((resolve, reject) => {
     try {
-      const rect = currentSvg.getBoundingClientRect();
-      const width = Math.max(1, Math.round(rect.width));
-      const height = Math.max(1, Math.round(rect.height));
-
       // SVGをクローンして、エクスポートに都合のよい寸法属性を付与
       const cloned = currentSvg.cloneNode(true);
-      // viewBoxが無ければBBoxから生成（失敗時はレイアウト寸法で代用）
-      if (!cloned.getAttribute('viewBox')) {
-        try {
-          const bb = currentSvg.getBBox();
-          cloned.setAttribute('viewBox', `0 0 ${Math.max(1, Math.ceil(bb.width))} ${Math.max(1, Math.ceil(bb.height))}`);
-        } catch {
-          cloned.setAttribute('viewBox', `0 0 ${width} ${height}`);
-        }
+      let vb = cloned.viewBox && cloned.viewBox.baseVal;
+      if (!vb || !vb.width || !vb.height) {
+        // viewBoxが無ければ現在のレイアウト寸法で代用
+        const rect = currentSvg.getBoundingClientRect();
+        const w = Math.max(1, Math.round(rect.width));
+        const h = Math.max(1, Math.round(rect.height));
+        cloned.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        vb = { width: w, height: h };
       }
-      // 出力サイズを明示
-      cloned.setAttribute('width', String(width));
-      cloned.setAttribute('height', String(height));
-      // 歪み防止のため既定の比率保持（中央）
+      const imgW = Math.max(1, Math.round(vb.width * scale));
+      const imgH = Math.max(1, Math.round(vb.height * scale));
+      cloned.setAttribute('width', String(imgW));
+      cloned.setAttribute('height', String(imgH));
       cloned.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
       const serializer = new XMLSerializer();
@@ -747,35 +841,48 @@ function exportSvgToPngBlob(currentSvg) {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        let ctx = canvas.getContext('2d');
-        if (!ctx) { URL.revokeObjectURL(url); reject(new Error('no ctx')); return; }
-        // 歪まないようアスペクト比を維持して描画（レターボックス）
-        let destX = 0, destY = 0, destW = width, destH = height;
-        const vb = cloned.viewBox && cloned.viewBox.baseVal;
-        if (vb && vb.width && vb.height) {
-          const sx = width / vb.width;
-          const sy = height / vb.height;
-          const scale = Math.min(sx, sy); // meet（全体を収める）
-          destW = Math.round(vb.width * scale);
-          destH = Math.round(vb.height * scale);
-          destX = Math.floor((width - destW) / 2);
-          destY = Math.floor((height - destH) / 2);
-        }
-        // 左右の余白をトリミング：出力キャンバス幅をコンテンツ幅に合わせ、左右のレターボックスを除去
-        const outW = destW;
-        const outH = height;
-        if (canvas.width !== outW || canvas.height !== outH) {
-          canvas.width = outW; canvas.height = outH;
-          ctx = canvas.getContext('2d');
-          if (!ctx) { URL.revokeObjectURL(url); reject(new Error('no ctx2')); return; }
-        }
-        ctx.clearRect(0, 0, outW, outH);
+        const fontFamily = "'Noto Sans JP', system-ui, sans-serif";
+        const measureCtx = canvas.getContext('2d');
+        if (!measureCtx) { URL.revokeObjectURL(url); reject(new Error('no ctx')); return; }
+        const maxTextWidth = imgW - Math.round(24 * scale);
+
+        // 1行目(音名)は大きめ、2行目以降(シェアURL等)は小さめの基準サイズで、
+        // 幅に収まらない場合は自動的に縮小する。
+        const lineSpecs = footerLines.map((line, i) => {
+          const isFirst = i === 0;
+          const startPx = Math.round((isFirst ? 22 : 13) * scale);
+          const minPx = Math.round((isFirst ? 14 : 8) * scale);
+          const px = fitFontSize(measureCtx, line, maxTextWidth, startPx, minPx, fontFamily);
+          return { text: line, px };
+        });
+
+        const footerPaddingV = Math.round(10 * scale);
+        const lineGap = Math.round(6 * scale);
+        const footerH = lineSpecs.length
+          ? Math.round(lineSpecs.reduce((sum, s) => sum + s.px * 1.3, 0) + lineGap * Math.max(0, lineSpecs.length - 1) + footerPaddingV * 2)
+          : 0;
+
+        canvas.width = imgW;
+        canvas.height = imgH + footerH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { URL.revokeObjectURL(url); reject(new Error('no ctx2')); return; }
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, outW, outH);
-        // ソースの左右をクロップして描画（上下面の余白は保持）
-        ctx.drawImage(img, destX, 0, destW, height, 0, 0, outW, outH);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, imgW, imgH);
+
+        if (lineSpecs.length) {
+          ctx.fillStyle = '#111';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          let y = imgH + footerPaddingV;
+          lineSpecs.forEach((s) => {
+            ctx.font = `${s.px}px ${fontFamily}`;
+            y += (s.px * 1.3) / 2;
+            ctx.fillText(s.text, canvas.width / 2, y);
+            y += (s.px * 1.3) / 2 + lineGap;
+          });
+        }
+
         URL.revokeObjectURL(url);
         canvas.toBlob((blob) => {
           if (!blob) { reject(new Error('no blob')); return; }

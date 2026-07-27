@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Bassoon Fingering App</title>
     <meta name="theme-color" content="#ffffff">
+    <!-- OGP: 静的サイトのため固定文言(共有元ごとの動的差し替えは行わない) -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Bassoon Fingering App - ファゴット運指シェア">
+    <meta property="og:description" content="ファゴットの運指を記録してURLでシェアできるアプリ">
+    <meta property="og:url" content="https://okawahiroto.github.io/bassoon-fingering-app/">
+    <meta name="twitter:card" content="summary">
     <!-- PWA: Standalone/Fullscreen support -->
     <link rel="manifest" href="manifest.webmanifest">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,6 +22,12 @@
   <body>
     <div id="page-content" aria-label="アプリ本体">
       <h1 id="app-title">Bassoon Fingering App</h1>
+      <!-- URLシェアで開いた時だけ表示するバナー -->
+      <div id="shared-banner" hidden>
+        <span id="shared-banner-text">共有された運指を表示しています</span>
+        <button id="shared-save-btn" type="button" aria-label="共有された運指をライブラリに保存">ライブラリに保存</button>
+        <button id="shared-dismiss-btn" type="button" aria-label="このお知らせを閉じる">×</button>
+      </div>
       <!-- バスーンキーのSVGはランタイムで読み込み・インライン挿入 -->
       <div id="bassoon-wrapper" data-src="picture/bassoon_key.svg" aria-label="バスーンキー SVG"></div>
       <!-- 音名と楽譜コントロール -->
@@ -80,6 +92,7 @@
         <button id="library-btn" type="button" aria-label="保存済みライブラリを開く">Library</button>
         <button id="save-btn" type="button" aria-label="現在の運指をライブラリに保存">Save</button>
         <button id="memo-btn" type="button" aria-label="メモや注釈を入力">Memo</button>
+        <button id="link-btn" type="button" aria-label="運指のシェアURLをコピー">Link</button>
         <button id="download-btn" type="button" disabled aria-label="運指図を画像としてダウンロード">Download</button>
         <button id="share-btn" type="button" disabled aria-label="SNSに画像とメモを共有">Share</button>
       </div>
@@ -120,6 +133,6 @@
         </div>
       </div>
     </div>
-    <script src="app.js" defer></script>
+    <script type="module" src="app.js"></script>
   </body>
   </html>
