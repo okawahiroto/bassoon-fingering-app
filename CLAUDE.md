@@ -9,6 +9,7 @@
 - 開発ブランチ: `main`(直接開発。feature/score-overlayは2026-07-25にmainへマージ・削除済み)
 - 公開範囲: パブリック(2026-07-27にプライベートから変更。GitHub Pages無料枠の前提条件)
 - 公開URL(GitHub Pages): https://okawahiroto.github.io/bassoon-fingering-app/ (2026-07-27有効化)
+- ライセンス: **CC BY-NC 4.0**(表示・非営利、2026-07-27にCC0から変更)。商用利用には作者の許可が必要。`LICENSE`参照
 - 進捗管理: GitHub Issues。`docs/ROADMAP.md` は設計判断・データスキーマの詳細リファレンス
 
 ## 構成
