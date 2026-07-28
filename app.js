@@ -23,7 +23,6 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
   const libraryCloseBtn = document.getElementById('library-close-btn');
   const libraryExportBtn = document.getElementById('library-export-btn');
   const libraryImportInput = document.getElementById('library-import-input');
-  const linkBtn = document.getElementById('link-btn');
   const sharedBanner = document.getElementById('shared-banner');
   const sharedBannerText = document.getElementById('shared-banner-text');
   const sharedSaveBtn = document.getElementById('shared-save-btn');
@@ -134,41 +133,10 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
   function openTextModal() {
     if (!(textModal instanceof HTMLElement)) return;
     textModal.hidden = false;
-    const saved = getSavedText();
-    // 現在の音名 + オクターブを初期値として用意（Trill ON時はハイフンで連結）
-    const formatNoteWithOct = (label, octNum) => {
-      const parts = String(label || '').split('/')
-        .map((s) => (s || '').trim())
-        .filter(Boolean);
-      return parts.map((p) => `${p}${octNum}`).join('/');
-    };
-    const buildInitialFromSelections = () => {
-      let base = '';
-      if (octaveSelect instanceof HTMLSelectElement && noteSelect instanceof HTMLSelectElement) {
-        const oct = parseInt(octaveSelect.value, 10);
-        const noteLabel = noteSelect.options[noteSelect.selectedIndex]?.textContent || '';
-        base = formatNoteWithOct(noteLabel, isNaN(oct) ? '' : oct);
-      }
-      let trill = '';
-      const trillOn = (trillEnabled instanceof HTMLInputElement) && !!trillEnabled.checked;
-      if (
-        trillOn &&
-        trillOctaveSelect instanceof HTMLSelectElement &&
-        trillNoteSelect instanceof HTMLSelectElement
-      ) {
-        const toct = parseInt(trillOctaveSelect.value, 10);
-        const tlabel = trillNoteSelect.options[trillNoteSelect.selectedIndex]?.textContent || '';
-        trill = formatNoteWithOct(tlabel, isNaN(toct) ? '' : toct);
-      }
-      const combined = trill ? `${base}-${trill}` : base;
-      return { base, trill, combined, trillOn };
-    };
     if (textArea instanceof HTMLTextAreaElement) {
-      const { combined } = buildInitialFromSelections();
-      const existingRaw = (saved || '');
-      const existing = existingRaw.trim();
-      // 既存が空でも末尾に半角スペースを付与して編集を続けやすくする
-      textArea.value = existing ? `${combined} ${existing}` : `${combined} `;
+      // メモはユーザーが書いた内容だけを保持する。音名は state.note が持っており、
+      // 画面・五線譜・書き出し画像・シェアURLにも入るため、ここへ差し込むと二重になる。
+      textArea.value = getSavedText();
       // モバイルでキーボードが出ない対策：即時フォーカス + 選択範囲設定
       try {
         textArea.focus({ preventScroll: true });
@@ -230,7 +198,7 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
 
       // 純CSSレイアウトにより高さ調整（JSは不要）
 
-      // URLにシェアクエリ(v/n/k/tn)があれば、ローカルの下書きより優先して復元する
+      // URLにシェアクエリ(v/n/k/tn/l)があれば、ローカルの下書きより優先して復元する
       let isSharedLoad = false;
       const sharedParamsRaw = new URLSearchParams(location.search);
       if (sharedParamsRaw.has('n') || sharedParamsRaw.has('k')) {
@@ -241,7 +209,7 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
           state.note = shared.note || '';
           state.trillNote = shared.trillNote || null;
           state.keys = { ...(shared.keys || {}) };
-          state.label = '';
+          state.label = shared.label || '';
         }
         // URLからクエリを消す（リロード時に毎回同じ共有内容へ戻らないように）
         try { history.replaceState(null, '', location.pathname); } catch {}
@@ -418,9 +386,13 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
         const token = noteToFilenameToken(state.note);
         return `fingering_${token || 'untitled'}.png`;
       }
+      // 音名の表示行(トリル時は「C#4 → D#4」)。画像フッターと共有テキストで共通に使う
+      function buildNoteLine() {
+        return state.trillNote ? `${state.note} → ${state.trillNote}` : (state.note || '');
+      }
       // 画像に焼き込む文字列(音名+トリル、シェアURL)
       function buildFooterLines(shareUrl) {
-        const noteLine = state.trillNote ? `${state.note} → ${state.trillNote}` : (state.note || '');
+        const noteLine = buildNoteLine();
         const lines = [];
         if (noteLine) lines.push(noteLine);
         lines.push(shareUrl);
@@ -463,8 +435,11 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
           const notes = (getSavedText() || '').trim();
           const tag = '#BsnFingApp';
           const hasTag = new RegExp('(^|\\s)'+tag.replace('#','\\#')+'(\\s|$)').test(notes);
-          const textWithTag = hasTag ? notes : (notes ? notes + '\n' + tag : tag);
-          const shareText = `${textWithTag}\n${shareUrl}`;
+          // 音名 / メモ / タグ / シェアURL を行で並べる（メモが空の行は出さない）
+          const noteLine = buildNoteLine();
+          const shareText = [noteLine, notes, hasTag ? '' : tag, shareUrl]
+            .filter(Boolean)
+            .join('\n');
           const filename = buildFingeringFilename();
           try {
             const blob = await exportSvgToPngBlob(currentSvg, { footerLines: buildFooterLines(shareUrl) });
@@ -513,24 +488,6 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
       if (sharedDismissBtn instanceof HTMLButtonElement) {
         sharedDismissBtn.addEventListener('click', () => {
           if (sharedBanner instanceof HTMLElement) sharedBanner.hidden = true;
-        });
-      }
-
-      // Linkボタン: 現在の運指のシェアURLをクリップボードへコピー
-      if (linkBtn instanceof HTMLButtonElement) {
-        linkBtn.addEventListener('click', async () => {
-          const shareUrl = location.origin + location.pathname + stateToShareQuery(state);
-          try {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              await navigator.clipboard.writeText(shareUrl);
-              alert('リンクをコピーしました');
-            } else {
-              throw new Error('clipboard API unavailable');
-            }
-          } catch (e) {
-            // クリップボードAPIが使えない環境向けのフォールバック
-            try { prompt('このURLをコピーしてください', shareUrl); } catch {}
-          }
         });
       }
 

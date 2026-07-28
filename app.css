@@ -168,7 +168,6 @@ body {
 #share-btn,
 #library-btn,
 #save-btn,
-#link-btn,
 #text-close-btn {
   appearance: none;
   border: 1px solid #d0d0d0;
@@ -190,8 +189,7 @@ body {
 #download-btn,
 #share-btn,
 #library-btn,
-#save-btn,
-#link-btn {
+#save-btn {
   min-width: 140px;
   text-align: center;
 }
@@ -361,21 +359,19 @@ body {
 #memo-btn { min-width: 90px; }
 
 /* --- Controls: Buttons priority, size, color, rounding --- */
-/* Order: Library (0) → Save (1) → Link (2) → Download (3) → Share (4) → rightmost Memo (5) */
+/* Order: Library (0) → Save (1) → Download (2) → Share (3) → rightmost Memo (4) */
 #library-btn { order: 0; }
 #save-btn { order: 1; }
-#link-btn { order: 2; }
-#download-btn { order: 3; }
-#share-btn { order: 4; }
-#memo-btn { order: 5; }
+#download-btn { order: 2; }
+#share-btn { order: 3; }
+#memo-btn { order: 4; }
 
 /* Shape & size */
 #memo-btn,
 #share-btn,
 #download-btn,
 #library-btn,
-#save-btn,
-#link-btn {
+#save-btn {
   border-radius: 12px;
   height: 44px;
   min-width: 140px;
@@ -388,16 +384,14 @@ body {
 #share-btn:focus-visible,
 #download-btn:focus-visible,
 #library-btn:focus-visible,
-#save-btn:focus-visible,
-#link-btn:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+#save-btn:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
 
 /* Disabled state */
 #memo-btn:disabled,
 #share-btn:disabled,
 #download-btn:disabled,
 #library-btn:disabled,
-#save-btn:disabled,
-#link-btn:disabled { opacity: .6; cursor: not-allowed; }
+#save-btn:disabled { opacity: .6; cursor: not-allowed; }
 
 /* Priority colors */
 /* Memo = Primary (solid) */
@@ -445,23 +439,13 @@ body {
 #library-btn:hover { background: #f9fafb; }
 #library-btn:active { background: #f3f4f6; }
 
-/* Link = シェアURLコピー（グレー・アウトライン） */
-#link-btn {
-  background: #fff;
-  color: #111827;
-  border: 1px solid #d1d5db;
-}
-#link-btn:hover { background: #f9fafb; }
-#link-btn:active { background: #f3f4f6; }
-
 @media (max-width: 480px), (max-height: 720px) {
   #controls { gap: 8px; }
   #memo-btn,
   #share-btn,
   #download-btn,
   #library-btn,
-  #save-btn,
-  #link-btn {
+  #save-btn {
     height: 40px;
     min-width: clamp(80px, 28vw, 120px);
     padding: 0 12px;

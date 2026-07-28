@@ -13,11 +13,11 @@
 
 ## 構成
 
-- `index.html` 画面全体(音名・トリルのセレクト、Library/Save/Memo/Link/Download/Share ボタン、メモ/ライブラリモーダル、共有バナー、OGPタグ)
+- `index.html` 画面全体(音名・トリルのセレクト、Library/Save/Download/Share/Memo ボタン、メモ/ライブラリモーダル、共有バナー、OGPタグ)
 - `app.js` 全ロジック(SVG読込とタップでのstate更新・描画、五線譜オーバーレイ描画、PNG書き出し、Web Share、マイライブラリ、URLシェア)。`<script type="module">` として読み込み、`lib/shareUrl.js` をimportして使う。`state = {version, note, trillNote, keys, label}` を唯一の正として管理する
 - `app.css` レイアウト(`pointer-events: fill` でSVG図形の内側をタップ可能にしている)
 - `picture/bassoon_key.svg` 運指図(キー形状29個+区切り線2本。全キーに `id` 付与済み。対応は `docs/KEYMAP.md` 参照)
-- `lib/shareUrl.js` 運指state ↔ URLクエリ文字列の変換(純関数)。`lib/shareUrl.test.js` で `npm test` 可能。app.jsからimportして使用中
+- `lib/shareUrl.js` 運指state ↔ URLクエリ文字列の変換(純関数)。`v`/`n`/`k`/`tn` に加え、メモを `l`(200文字上限)で往復させる。`lib/shareUrl.test.js` で `npm test` 可能。app.jsからimportして使用中
 - `manifest.webmanifest` PWA設定(Service Worker は無し)
 
 ## 最初に読むもの
