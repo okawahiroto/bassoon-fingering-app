@@ -100,6 +100,7 @@ body {
 }
 
 /* 音名と楽譜コントロール */
+/* 広い画面では1行に収まるためrow+wrapのまま(SVG表示エリアを圧迫しないため) */
 #note-controls {
   width: 100%;
   display: flex;
@@ -109,15 +110,17 @@ body {
   margin: 4px 0 0;
 }
 #note-controls .control-group {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
-  white-space: nowrap; /* グループ内は改行しない */
+  flex-wrap: wrap;
 }
-.control-group.main-group { margin-right: 4px; }
-.control-group.trill-group { margin-left: 4px; }
 #note-controls label { font-size: 14px; color: #333; }
 #note-controls .checkbox { display: inline-flex; align-items: center; gap: 6px; }
+
+/* 広い画面(1行レイアウト)ではスペーサーは不要なので消しておく */
+.trill-toggle-spacer { display: none; }
+.trill-toggle { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; }
 /* Bootstrapの見た目を活かすため、セレクトの枠線/パディング指定は外す */
 #octave-select,
 #note-select,
@@ -342,6 +345,14 @@ body {
   margin: 0;
 }
 
+/* 幅が狭くOct/Noteが1行に収まらない画面だけ、Trill行を明示的に2段目にして位置を揃える */
+/* (max-height基準の圧縮ブレークポイントには含めない: 横長だが低い画面でSVGエリアを余計に圧迫しないため) */
+@media (max-width: 480px) {
+  #note-controls { flex-direction: column; }
+  .trill-toggle-spacer { display: block; width: 66px; flex: 0 0 auto; }
+  .trill-toggle { width: 66px; }
+}
+
 /* モバイルや低い画面では余白・サイズを圧縮 */
 @media (max-width: 480px), (max-height: 720px) {
   #page-content { gap: 6px; padding: 6px 0 10px; }
@@ -440,14 +451,22 @@ body {
 #library-btn:active { background: #f3f4f6; }
 
 @media (max-width: 480px), (max-height: 720px) {
-  #controls { gap: 8px; }
+  #controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  /* Memoは最重要アクションのため最下段でフル幅表示 */
+  #memo-btn { grid-column: 1 / -1; }
   #memo-btn,
   #share-btn,
   #download-btn,
   #library-btn,
   #save-btn {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
     height: 40px;
-    min-width: clamp(80px, 28vw, 120px);
     padding: 0 12px;
     font-size: 13px;
   }

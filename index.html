@@ -31,8 +31,9 @@
       <!-- バスーンキーのSVGはランタイムで読み込み・インライン挿入 -->
       <div id="bassoon-wrapper" data-src="picture/bassoon_key.svg" aria-label="バスーンキー SVG"></div>
       <!-- 音名と楽譜コントロール -->
-      <div id="note-controls" aria-label="音名と楽譜設定" class="d-flex flex-wrap align-items-center gap-2">
-        <div class="control-group main-group d-inline-flex align-items-center gap-2">
+      <div id="note-controls" aria-label="音名と楽譜設定">
+        <div class="control-group main-group d-flex align-items-center gap-2">
+          <span class="trill-toggle-spacer" aria-hidden="true"></span>
           <label for="octave-select" class="form-label mb-0">Oct:</label>
           <select id="octave-select" class="form-select form-select-sm w-auto">
             <option value="5">C5</option>
@@ -57,8 +58,8 @@
             <option value="0" selected>C</option>
           </select>
         </div>
-        <div class="control-group trill-group d-inline-flex align-items-center gap-2">
-          <div class="form-check form-switch m-0">
+        <div class="control-group trill-group d-flex align-items-center gap-2">
+          <div class="form-check form-switch trill-toggle m-0">
             <input id="trill-enabled" type="checkbox" class="form-check-input" />
             <label for="trill-enabled" class="form-check-label">Trill</label>
           </div>
