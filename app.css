@@ -454,7 +454,7 @@ body {
   #controls {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 12px;
   }
   /* Memoは最重要アクションのため最下段でフル幅表示 */
   #memo-btn { grid-column: 1 / -1; }
@@ -466,8 +466,8 @@ body {
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
-    height: 40px;
+    height: 48px; /* タップ領域を確保(iOS推奨の44pt以上) */
     padding: 0 12px;
-    font-size: 13px;
+    font-size: 14px;
   }
 }
