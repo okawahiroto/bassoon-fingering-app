@@ -167,8 +167,6 @@ body {
 }
 
 .control-btn,
-#share-btn,
-#save-btn,
 #text-close-btn {
   appearance: none;
   border: 1px solid #d0d0d0;
@@ -385,6 +383,8 @@ body {
 #save-btn,
 #share-btn,
 #memo-btn {
+  appearance: none;
+  cursor: pointer;
   flex: 1 1 0;
   min-width: 0;
   box-sizing: border-box;
@@ -392,9 +392,12 @@ body {
   height: 48px;
   padding: 0 12px;
   font-size: 14px;
+  line-height: 1;
   text-align: center;
 }
 #more-btn {
+  appearance: none;
+  cursor: pointer;
   flex: 0 0 auto;
   box-sizing: border-box;
   width: 52px;
