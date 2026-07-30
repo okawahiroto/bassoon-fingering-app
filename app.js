@@ -30,6 +30,7 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
   const moreBtn = document.getElementById('more-btn');
   const moreModal = document.getElementById('more-modal');
   const moreCloseBtn = document.getElementById('more-close-btn');
+  const clearBtn = document.getElementById('clear-btn');
   if (!wrapper) return;
   const src = wrapper.getAttribute('data-src');
   if (!src) return;
@@ -265,6 +266,34 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
           cycleKeyState(shape);
         }
       });
+
+      // Clearボタン: 全キーを無色に戻す。Shareの隣にあり誤タップの影響が大きいため、
+      // ライブラリ削除ボタンと同じ2段階確認方式(1回目で警告色に変わり、3秒以内の
+      // 2回目タップで確定。何もしなければ自動で通常表示に戻る)を使う。
+      if (clearBtn instanceof HTMLButtonElement) {
+        let pendingClear = false;
+        let clearRevertTimer = null;
+        const revertClearBtn = () => {
+          pendingClear = false;
+          clearBtn.textContent = 'Clear';
+          clearBtn.classList.remove('is-armed');
+        };
+        clearBtn.addEventListener('click', () => {
+          if (!pendingClear) {
+            if (Object.keys(state.keys).length === 0) return; // 既に空なら何もしない
+            pendingClear = true;
+            clearBtn.textContent = '確定';
+            clearBtn.classList.add('is-armed');
+            clearRevertTimer = setTimeout(revertClearBtn, 3000);
+            return;
+          }
+          clearTimeout(clearRevertTimer);
+          revertClearBtn();
+          state.keys = {};
+          renderKeys(svg);
+          saveCurrentDraft();
+        });
+      }
 
       // 楽譜（左下オーバーレイ）初期化とイベント
       // セレクトへの保存値の反映（旧バージョンのテキスト保存も考慮）

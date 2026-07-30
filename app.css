@@ -395,7 +395,8 @@ body {
   line-height: 1;
   text-align: center;
 }
-#more-btn {
+#more-btn,
+#clear-btn {
   appearance: none;
   cursor: pointer;
   flex: 0 0 auto;
@@ -403,36 +404,52 @@ body {
   width: 52px;
   height: 48px;
   border-radius: 12px;
-  font-size: 20px;
   line-height: 1;
 }
+#more-btn { font-size: 20px; }
+#clear-btn { font-size: 12px; }
 
 /* Focus visibility */
 #save-btn:focus-visible,
 #share-btn:focus-visible,
 #memo-btn:focus-visible,
-#more-btn:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+#more-btn:focus-visible,
+#clear-btn:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
 
 /* Disabled state */
 #save-btn:disabled,
 #share-btn:disabled,
 #memo-btn:disabled,
-#more-btn:disabled { opacity: .6; cursor: not-allowed; }
+#more-btn:disabled,
+#clear-btn:disabled { opacity: .6; cursor: not-allowed; }
 
-/* Share / Save / Memo は色分けせず単色の実塗りに統一する(色による意味づけが弱かったため) */
-#share-btn,
-#save-btn,
-#memo-btn {
+/* Share / Save / Memo は同じ青の濃淡で優先度を表す(使用頻度: Share > Save > Memo) */
+/* Share = 実塗り(最重要) */
+#share-btn {
   background: #2563eb;
   color: #fff;
   border: 1px solid transparent;
 }
-#share-btn:hover,
-#save-btn:hover,
-#memo-btn:hover { background: #1d4ed8; }
-#share-btn:active,
-#save-btn:active,
-#memo-btn:active { background: #1e40af; }
+#share-btn:hover { background: #1d4ed8; }
+#share-btn:active { background: #1e40af; }
+
+/* Save = トーン塗り(中間) */
+#save-btn {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid transparent;
+}
+#save-btn:hover { background: #bfdbfe; }
+#save-btn:active { background: #93c5fd; }
+
+/* Memo = アウトライン(控えめ) */
+#memo-btn {
+  background: #fff;
+  color: #2563eb;
+  border: 1px solid #2563eb;
+}
+#memo-btn:hover { background: rgba(37, 99, 235, 0.06); }
+#memo-btn:active { background: rgba(37, 99, 235, 0.12); }
 
 /* その他(⋯) = Tertiary/Ghost(旧Downloadの見た目を引き継ぐ) */
 #more-btn {
@@ -443,12 +460,30 @@ body {
 #more-btn:hover { background: #f9fafb; }
 #more-btn:active { background: #f3f4f6; }
 
+/* Clear = 通常時はGhost。誤タップで一気に消えると困るため、
+   ライブラリ削除ボタンと同じ2段階確認方式(1回目で警告色に変わり、
+   3秒以内の2回目で確定)を使う。armed中は警告色で「確定」を示す。 */
+#clear-btn {
+  background: #fff;
+  color: #111827;
+  border: 1px solid #d1d5db;
+}
+#clear-btn:hover { background: #f9fafb; }
+#clear-btn:active { background: #f3f4f6; }
+#clear-btn.is-armed {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+#clear-btn.is-armed:hover { background: #fee2e2; }
+
 @media (max-width: 480px), (max-height: 720px) {
   #controls { gap: 8px; }
   #save-btn,
   #share-btn,
   #memo-btn,
-  #more-btn {
+  #more-btn,
+  #clear-btn {
     font-size: 13px;
   }
 }
