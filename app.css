@@ -416,33 +416,20 @@ body {
 #memo-btn:disabled,
 #more-btn:disabled { opacity: .6; cursor: not-allowed; }
 
-/* Priority colors */
-/* Memo = Primary (solid) */
+/* Share / Save / Memo は色分けせず単色の実塗りに統一する(色による意味づけが弱かったため) */
+#share-btn,
+#save-btn,
 #memo-btn {
   background: #2563eb;
   color: #fff;
   border: 1px solid transparent;
 }
+#share-btn:hover,
+#save-btn:hover,
 #memo-btn:hover { background: #1d4ed8; }
+#share-btn:active,
+#save-btn:active,
 #memo-btn:active { background: #1e40af; }
-
-/* Share = Secondary (outline) */
-#share-btn {
-  background: #fff;
-  color: #2563eb;
-  border: 1px solid #2563eb;
-}
-#share-btn:hover { background: rgba(37, 99, 235, 0.06); }
-#share-btn:active { background: rgba(37, 99, 235, 0.12); }
-
-/* Save = 保存アクション（緑・実塗り） */
-#save-btn {
-  background: #16a34a;
-  color: #fff;
-  border: 1px solid transparent;
-}
-#save-btn:hover { background: #15803d; }
-#save-btn:active { background: #166534; }
 
 /* その他(⋯) = Tertiary/Ghost(旧Downloadの見た目を引き継ぐ) */
 #more-btn {
