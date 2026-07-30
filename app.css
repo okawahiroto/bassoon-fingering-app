@@ -334,6 +334,16 @@ body {
   inset: 0;
   z-index: 1000;
 }
+/* ⋯ボタンが画面下部にあるため、その他モーダルだけは下からせり上がる
+   シート形式にする(Memo/Libraryモーダルは従来通り上部表示のまま)。
+   IDセレクタで指定するため、他画面幅の.modal-dialog(border-radius:0等)
+   よりも詳細度で優先される。 */
+#more-modal .modal-dialog {
+  top: auto;
+  bottom: 0;
+  border-radius: 16px 16px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
 .more-menu {
   list-style: none;
   margin: 0;
