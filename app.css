@@ -155,21 +155,19 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Save / Share / Memo / その他(⋯)の4項目を1行に。記録・シェアを最優先し、
+   使用頻度の低いLibrary/Downloadは⋯モーダルへ格納する(Issue #9)。 */
 #controls {
   width: 100%;
   /* page-content の gap(8px) + 4px = 合計 12px の上余白 */
   margin: 4px auto 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px; /* 最低間隔を確保しつつ */
-  justify-content: center; /* 折り返し時も中央寄せで揃える */
+  gap: 12px;
   padding: 0 12px; /* 外側左右に最低12pxの余白 */
 }
 
 .control-btn,
-#download-btn,
 #share-btn,
-#library-btn,
 #save-btn,
 #text-close-btn {
   appearance: none;
@@ -181,20 +179,6 @@ body {
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
-}
-
-#download-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-/* 左右のボタンを同サイズにする */
-#download-btn,
-#share-btn,
-#library-btn,
-#save-btn {
-  min-width: 140px;
-  text-align: center;
 }
 
 /* モーダル */
@@ -345,6 +329,38 @@ body {
   margin: 0;
 }
 
+/* その他モーダル(テキスト/ライブラリモーダルと共通の外枠ルールを流用) */
+#more-modal[hidden] { display: none; }
+#more-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+.more-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.more-menu li { margin: 0; }
+.more-menu button {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  background: #fff;
+  color: #222;
+  font-size: 15px;
+  cursor: pointer;
+}
+.more-menu button:disabled { opacity: .6; cursor: not-allowed; }
+
 /* 幅が狭くOct/Noteが1行に収まらない画面だけ、Trill行を明示的に2段目にして位置を揃える */
 /* (max-height基準の圧縮ブレークポイントには含めない: 横長だが低い画面でSVGエリアを余計に圧迫しないため) */
 @media (max-width: 480px) {
@@ -361,48 +377,44 @@ body {
   #note-controls select { padding: .25rem .75rem; font-size: 13px; }
   #octave-select, #trill-octave-select { min-width: 64px; max-width: 64px; padding-right: 1.9rem; }
   #note-select, #trill-note-select { min-width: 88px; max-width: 88px; padding-right: 1.9rem; }
-  #download-btn,
-  #share-btn { min-width: 120px; padding: 8px 10px; font-size: 13px; }
   .modal-dialog { width: 100vw; border-radius: 0; }
 }
 
-/* メモボタンの最小幅 */
-#memo-btn { min-width: 90px; }
-
-/* --- Controls: Buttons priority, size, color, rounding --- */
-/* Order: Library (0) → Save (1) → Download (2) → Share (3) → rightmost Memo (4) */
-#library-btn { order: 0; }
-#save-btn { order: 1; }
-#download-btn { order: 2; }
-#share-btn { order: 3; }
-#memo-btn { order: 4; }
-
-/* Shape & size */
-#memo-btn,
+/* --- Controls: Save / Share / Memo / その他(⋯) --- */
+/* Shape & size(DOM順=視覚順。orderによる並び替えは行わない) */
+#save-btn,
 #share-btn,
-#download-btn,
-#library-btn,
-#save-btn {
+#memo-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  box-sizing: border-box;
   border-radius: 12px;
-  height: 44px;
-  min-width: 140px;
-  padding: 0 16px;
+  height: 48px;
+  padding: 0 12px;
   font-size: 14px;
+  text-align: center;
+}
+#more-btn {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 52px;
+  height: 48px;
+  border-radius: 12px;
+  font-size: 20px;
+  line-height: 1;
 }
 
 /* Focus visibility */
-#memo-btn:focus-visible,
+#save-btn:focus-visible,
 #share-btn:focus-visible,
-#download-btn:focus-visible,
-#library-btn:focus-visible,
-#save-btn:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+#memo-btn:focus-visible,
+#more-btn:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
 
 /* Disabled state */
-#memo-btn:disabled,
+#save-btn:disabled,
 #share-btn:disabled,
-#download-btn:disabled,
-#library-btn:disabled,
-#save-btn:disabled { opacity: .6; cursor: not-allowed; }
+#memo-btn:disabled,
+#more-btn:disabled { opacity: .6; cursor: not-allowed; }
 
 /* Priority colors */
 /* Memo = Primary (solid) */
@@ -423,15 +435,6 @@ body {
 #share-btn:hover { background: rgba(37, 99, 235, 0.06); }
 #share-btn:active { background: rgba(37, 99, 235, 0.12); }
 
-/* Download = Tertiary/Ghost */
-#download-btn {
-  background: #fff;
-  color: #111827;
-  border: 1px solid #d1d5db;
-}
-#download-btn:hover { background: #f9fafb; }
-#download-btn:active { background: #f3f4f6; }
-
 /* Save = 保存アクション（緑・実塗り） */
 #save-btn {
   background: #16a34a;
@@ -441,33 +444,88 @@ body {
 #save-btn:hover { background: #15803d; }
 #save-btn:active { background: #166534; }
 
-/* Library = ナビゲーション（グレー・アウトライン） */
-#library-btn {
+/* その他(⋯) = Tertiary/Ghost(旧Downloadの見た目を引き継ぐ) */
+#more-btn {
   background: #fff;
   color: #111827;
   border: 1px solid #d1d5db;
 }
-#library-btn:hover { background: #f9fafb; }
-#library-btn:active { background: #f3f4f6; }
+#more-btn:hover { background: #f9fafb; }
+#more-btn:active { background: #f3f4f6; }
 
 @media (max-width: 480px), (max-height: 720px) {
-  #controls {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-  /* Memoは最重要アクションのため最下段でフル幅表示 */
-  #memo-btn { grid-column: 1 / -1; }
-  #memo-btn,
+  #controls { gap: 8px; }
+  #save-btn,
   #share-btn,
-  #download-btn,
-  #library-btn,
-  #save-btn {
-    box-sizing: border-box;
-    width: 100%;
-    min-width: 0;
-    height: 48px; /* タップ領域を確保(iOS推奨の44pt以上) */
-    padding: 0 12px;
-    font-size: 14px;
+  #memo-btn,
+  #more-btn {
+    font-size: 13px;
   }
+}
+
+/* alert()の代わりのトースト通知 */
+#toast[hidden] { display: none; }
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 1100; /* .modal-dialog(1001)より上に表示する */
+  max-width: min(92vw, 480px);
+  box-sizing: border-box;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(17, 24, 39, 0.94);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+  pointer-events: none; /* 下のUI操作を塞がない */
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+#toast.is-visible { opacity: 1; }
+#toast.is-error { background: #b91c1c; }
+@media (prefers-reduced-motion: reduce) {
+  #toast { transition: none; }
+}
+
+/* ===== 横長/広い画面: SVGを左カラム・コントロールを右カラムに配置 =====
+   縦長スマホでは既に絵が幅いっぱいなので対象外(min-aspect-ratioで除外)。
+   幅・縦横比の両方を条件にしないと、狭くて縦長のウィンドウで却って絵が
+   小さくなるケースが出るため両方必須。 */
+@media (min-width: 660px) and (min-aspect-ratio: 1/1) {
+  #page-content {
+    width: 100vw;
+    max-width: 1200px;
+    height: 100dvh;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    grid-template-rows: auto auto auto auto 1fr;
+    grid-template-areas:
+      "banner banner"
+      "art    title"
+      "art    notes"
+      "art    actions"
+      "art    .";
+    align-content: start;
+    column-gap: 16px;
+    row-gap: 8px;
+    padding: 8px calc(8px + env(safe-area-inset-right))
+      calc(8px + env(safe-area-inset-bottom))
+      calc(8px + env(safe-area-inset-left));
+    box-sizing: border-box;
+  }
+  #shared-banner { grid-area: banner; }
+  #bassoon-wrapper { grid-area: art; min-height: 0; min-width: 0; }
+  #app-title { grid-area: title; text-align: left; font-size: 1rem; margin: 0 0 4px; }
+  #note-controls { grid-area: notes; flex-direction: column; align-items: stretch; margin: 0; }
+  /* レールの幅が狭いので、Save/Share/Memo/⋯は横並びではなく縦積みにする */
+  #controls { grid-area: actions; padding: 0; margin: 0; flex-direction: column; }
+  #save-btn, #share-btn, #memo-btn, #more-btn { width: 100%; }
+
+  /* レール内はTrill位置揃えの2段組みを常に使う(モバイル480px以下と同じ考え方) */
+  .trill-toggle-spacer { display: block; width: 66px; flex: 0 0 auto; }
+  .trill-toggle { width: 66px; }
 }

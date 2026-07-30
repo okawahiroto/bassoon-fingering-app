@@ -27,6 +27,9 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
   const sharedBannerText = document.getElementById('shared-banner-text');
   const sharedSaveBtn = document.getElementById('shared-save-btn');
   const sharedDismissBtn = document.getElementById('shared-dismiss-btn');
+  const moreBtn = document.getElementById('more-btn');
+  const moreModal = document.getElementById('more-modal');
+  const moreCloseBtn = document.getElementById('more-close-btn');
   if (!wrapper) return;
   const src = wrapper.getAttribute('data-src');
   if (!src) return;
@@ -37,6 +40,24 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
   // 運指データ(スキーマv1)。SVGの色はここから描画し、DOMの色を正としない。
   // keys: キーID(SVGのid) -> 0=開放(省略可)/1=押す(黒)/2=半開・特殊(青)/3=トリル(赤)
   const state = { version: 1, note: '', trillNote: null, keys: {}, label: '' };
+
+  // --- alert()の代わりのトースト通知 ---
+  // iOS「ホーム画面に追加」(standalone)では alert()/confirm() が表示されない既知の問題があるため、
+  // 完了・失敗の通知はすべてこれを使う(破壊的操作の確認はボタン自体の2段階確認方式を別途使う)。
+  let toastTimer = null;
+  function showToast(message, opts = {}) {
+    const el = document.getElementById('toast');
+    if (!el) return;
+    clearTimeout(toastTimer);
+    el.textContent = message;
+    el.classList.toggle('is-error', !!opts.error);
+    el.hidden = false;
+    requestAnimationFrame(() => el.classList.add('is-visible'));
+    toastTimer = setTimeout(() => {
+      el.classList.remove('is-visible');
+      setTimeout(() => { el.hidden = true; }, 200);
+    }, opts.error ? 4000 : 2200);
+  }
 
   // --- 編集中stateの永続化(リロード時の復元用) ---
   function saveCurrentDraft() {
@@ -402,6 +423,9 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
       // ダウンロードボタンを有効化
       if (downloadBtn instanceof HTMLButtonElement) {
         downloadBtn.disabled = false;
+        // Downloadを実行したら、その他シートは自動で閉じる
+        // (closeMoreModalは同スコープ内で後から定義されるがfunction宣言なのでhoistされ、ここから参照できる)
+        downloadBtn.addEventListener('click', () => { closeMoreModal(); });
         downloadBtn.addEventListener('click', () => {
           const currentSvg = document.getElementById('bassoonSvg');
           if (!currentSvg) return;
@@ -417,10 +441,10 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
               a.remove();
               setTimeout(() => URL.revokeObjectURL(a.href), 1000);
               // 成功メッセージ（画像のみDL）
-              try { alert('画像のみダウンロードしました'); } catch {}
+              showToast('画像のみダウンロードしました');
             })
             .catch(() => {
-              alert('画像の作成に失敗しました。もう一度お試しください。');
+              showToast('画像の作成に失敗しました。もう一度お試しください。', { error: true });
             });
         });
       }
@@ -462,9 +486,9 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-            alert('お使いの環境では画像付き共有に対応していません。画像をダウンロードしました。テキストはクリップボードにコピー済みです。');
+            showToast('お使いの環境では画像付き共有に対応していません。画像をダウンロードしました。テキストはクリップボードにコピー済みです。', { error: true });
           } catch (e) {
-            alert('共有に失敗しました。ダウンロード機能をご利用ください。');
+            showToast('共有に失敗しました。ダウンロード機能をご利用ください。', { error: true });
           }
         });
       }
@@ -473,7 +497,7 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
       if (saveBtn instanceof HTMLButtonElement) {
         saveBtn.addEventListener('click', () => {
           addLibraryEntry(state);
-          try { alert('ライブラリに保存しました'); } catch {}
+          showToast('ライブラリに保存しました');
         });
       }
 
@@ -482,7 +506,7 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
         sharedSaveBtn.addEventListener('click', () => {
           addLibraryEntry(state);
           if (sharedBanner instanceof HTMLElement) sharedBanner.hidden = true;
-          try { alert('ライブラリに保存しました'); } catch {}
+          showToast('ライブラリに保存しました');
         });
       }
       if (sharedDismissBtn instanceof HTMLButtonElement) {
@@ -614,8 +638,37 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
         });
       }
 
+      // その他(⋯)モーダル: Library/Downloadを格納する
+      function closeMoreModal() {
+        if (!(moreModal instanceof HTMLElement)) return;
+        moreModal.hidden = true;
+        if (moreBtn instanceof HTMLButtonElement) moreBtn.setAttribute('aria-expanded', 'false');
+      }
+      if (moreBtn instanceof HTMLButtonElement) {
+        moreBtn.addEventListener('click', () => {
+          if (moreModal instanceof HTMLElement) {
+            moreModal.hidden = false;
+            moreBtn.setAttribute('aria-expanded', 'true');
+          }
+        });
+      }
+      if (moreCloseBtn instanceof HTMLButtonElement) {
+        moreCloseBtn.addEventListener('click', closeMoreModal);
+      }
+      if (moreModal instanceof HTMLElement) {
+        // このモーダルは一覧の再描画をしないため、Libraryのcapture対応(下記コメント参照)は不要
+        moreModal.addEventListener('click', (e) => {
+          const dialog = moreModal.querySelector('.modal-dialog');
+          const t = e.target;
+          if (!(dialog instanceof HTMLElement) || !(t instanceof HTMLElement)) return;
+          if (!dialog.contains(t)) closeMoreModal();
+        });
+      }
+
       if (libraryBtn instanceof HTMLButtonElement) {
         libraryBtn.addEventListener('click', openLibraryModal);
+        // Libraryを開いたら、その他シートは自動で閉じる
+        libraryBtn.addEventListener('click', closeMoreModal);
       }
       if (libraryCloseBtn instanceof HTMLButtonElement) {
         libraryCloseBtn.addEventListener('click', closeLibraryModal);
@@ -681,9 +734,9 @@ import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
               });
               saveLibrary(existing);
               renderLibraryList();
-              try { alert(`${imported}件インポートしました(重複${skipped}件はスキップ)`); } catch {}
+              showToast(`${imported}件インポートしました(重複${skipped}件はスキップ)`);
             } catch (e) {
-              try { alert('インポートに失敗しました。JSONファイルの形式を確認してください。'); } catch {}
+              showToast('インポートに失敗しました。JSONファイルの形式を確認してください。', { error: true });
             } finally {
               libraryImportInput.value = '';
             }
