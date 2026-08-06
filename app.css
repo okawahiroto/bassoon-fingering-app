@@ -261,6 +261,13 @@ body {
   inset: 0;
   z-index: 1000;
 }
+/* ⋯モーダル(下部シート)経由で開くため、Libraryモーダルも同じく下部シート形式にする */
+#library-modal .modal-dialog {
+  top: auto;
+  bottom: 0;
+  border-radius: 16px 16px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
 #library-filter-input {
   width: 100%;
   box-sizing: border-box;
