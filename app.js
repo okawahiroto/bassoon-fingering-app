@@ -1,5 +1,52 @@
 import { stateToShareQuery, searchParamsToState } from './lib/shareUrl.js';
 
+// Service Worker登録(Phase 3: PWA堅牢化, Issue #4)。SVG読み込みの成否に関わらず
+// 常時実行する。相対パスで登録することで、GitHub Pagesのサブパス配信でも
+// 正しいスコープ(このアプリの配置ディレクトリ以下)になる。
+if ('serviceWorker' in navigator) {
+  const registerServiceWorker = () => {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {
+      // オフライン強化は付加機能のため、登録に失敗してもアプリ本体は通常通り動作させる
+    });
+  };
+  // モジュールスクリプトの実行タイミングによってはload イベントが既に発火済みのことがあるため、
+  // その場合は即座に登録する
+  if (document.readyState === 'complete') {
+    registerServiceWorker();
+  } else {
+    window.addEventListener('load', registerServiceWorker);
+  }
+}
+
+// iOSでホーム画面に未追加の場合の案内(Phase 3: PWA堅牢化, Issue #4)。
+// iOSのSafari/その他ブラウザは`beforeinstallprompt`に対応していないため、
+// 「共有→ホーム画面に追加」の手順をこちらで案内する。
+(function initIosInstallBanner() {
+  const banner = document.getElementById('ios-install-banner');
+  const dismissBtn = document.getElementById('ios-install-dismiss-btn');
+  if (!(banner instanceof HTMLElement)) return;
+  const DISMISS_KEY = 'ios_install_banner_dismissed';
+
+  const isStandalone = window.navigator.standalone === true
+    || window.matchMedia('(display-mode: standalone)').matches;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  let dismissed = false;
+  try { dismissed = localStorage.getItem(DISMISS_KEY) === '1'; } catch { /* localStorage不可時は毎回表示 */ }
+
+  if (isIOS && !isStandalone && !dismissed) {
+    banner.hidden = false;
+  }
+
+  if (dismissBtn instanceof HTMLButtonElement) {
+    dismissBtn.addEventListener('click', () => {
+      banner.hidden = true;
+      try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* no-op */ }
+    });
+  }
+})();
+
 (function () {
   const wrapper = document.getElementById('bassoon-wrapper');
   const downloadBtn = document.getElementById('download-btn');

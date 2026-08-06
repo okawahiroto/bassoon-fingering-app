@@ -1,0 +1,31 @@
+/*
+  Noto Sans JP のセルフホスト版(Phase 3: PWA堅牢化 / Issue #4)。
+  Google Fonts CDN からのフルセットではなく、このアプリのUI文字
+  (index.html / app.js / lib/shareUrl.js に実際に登場する文字)
+  + ひらがな・カタカナ・CJK記号・半角全角形 + 基本ラテン文字に
+  限定してサブセット化した woff2。書体自体はNoto Sans JPそのまま
+  (OFL.txt参照)。
+  UIに無い稀な漢字(メモへの自由入力など)は app.css のフォールバック
+  チェーン('Hiragino Sans' 等のOSネイティブ書体)で表示される。
+*/
+@font-face {
+  font-family: 'Noto Sans JP';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('NotoSansJP-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Sans JP';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('NotoSansJP-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Sans JP';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('NotoSansJP-700.woff2') format('woff2');
+}

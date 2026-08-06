@@ -63,7 +63,7 @@
 6. デッドコードの整理: `app.js:1-26` の `#circle` ブロック(該当要素はもう無い)、`inlineTextArea` / `textBtn` 関連(HTMLから削除済みの要素への参照)、`app.css:31-34`(`#circle`)、`app.css:119-136`(`#inline-notes` 系)。
 7. 未コミットの `index.html:37` に全角中黒「・」が混入している(`</option>・`)。事故と思われる。削除してからコミットすること。
 8. ✅(Phase 2)ダウンロードファイル名を `fingering_Cs4.png` 形式(音名入り)にした。
-9. PWAとして不完全: Service Worker が無くオフラインで動かない。Bootstrap と Google Fonts をCDNから読んでいるためオフラインで崩れる。manifest のアイコンが運指図SVGの流用。優先度低。→ Phase 3
+9. ✅(Phase 3)PWAとして不完全だった問題を解消。Service Workerでオフライン起動可能に、Bootstrap/Google Fontsをセルフホスト化、manifestに192px/512pxのPNGアイコンを設定。
 10. ✅(2026-07-26)`README.md` を作成。リポジトリの説明・使い方・構成・一本化方針を記載済み。
 
 ---
@@ -165,14 +165,16 @@ Phase 0 で全キー形状に id を付与し、`docs/KEYMAP.md` に「id ↔ �
    - 音名が消えた分は共有テキスト側で補う。`buildNoteLine()` を切り出し、画像フッターと共有テキストで同じ表記(トリル時は `C#4 → D#4`)を使う。共有テキストは「音名 / メモ / タグ / URL」の行構成。
    - 従来のメモ先頭の音名は異名同音を併記していた(`A#4/Bb4`)が、`state.note` はシャープ優先で正規化されているため、新表記は画像フッターと同じ `A#4` に揃う。
 
-## Phase 3: PWA堅牢化(任意・小粒)
+## Phase 3: PWA堅牢化(任意・小粒)— 完了(2026-08-07)
 
-1. Service Worker でアプリ本体をキャッシュ(オフライン起動)。
-2. Bootstrap・Google Fonts のセルフホスト化 or 依存削減。
-3. 正式アイコン(192px / 512px のPNG)を manifest に設定。
-4. iOS「ホーム画面に追加」の案内表示(インストールするとストレージが消されにくくなる)。
+1. ✅ `service-worker.js` を新設。アプリ本体一式(HTML/CSS/JS/フォント/Bootstrap/アイコン/manifest、計15ファイル)をキャッシュファースト戦略でプリキャッシュ。ページ遷移リクエストがオフラインで失敗した場合は `index.html` を返す。静的アセットを変更した際は `CACHE_NAME` のバージョンを上げること(上げないと古いキャッシュのまま更新されない)。
+2. ✅ Bootstrap・Google Fonts をセルフホスト化。
+   - Bootstrap は `vendor/bootstrap.min.css` にそのまま保存(232KB。使用クラスは僅かだが、`form-select`/`form-switch` 等の背景画像(SVG data URI)を含む複雑なスタイルを手動抽出すると壊すリスクがあるため、フル同梱を選択)。
+   - Noto Sans JP(400/500/700)は Google Fonts の全字体(絵文字・稀少漢字含め372ファイル、数MB〜十数MB相当)をそのまま持ってくると過剰なため、`fonttools`(`pyftsubset`)でこのアプリの実際のUI文字(`index.html`/`app.js`/`lib/shareUrl.js`)+ ひらがな・カタカナ・CJK記号・半角全角形 + 基本ラテン文字(計893文字)にサブセット化し、`vendor/fonts/NotoSansJP-{400,500,700}.woff2`(各約110KB、計約340KB)として同梱。メモへの自由入力等でサブセット外の漢字が使われた場合は `app.css` のフォールバックチェーン(`Hiragino Sans` 等のOSネイティブ書体)で表示される(tofu化はしない)。ライセンス(SIL OFL / MIT)は `vendor/fonts/OFL.txt` と `vendor/BOOTSTRAP_LICENSE.txt` に同梱。
+3. ✅ `picture/bassoon_key.svg` を正方形(560×560)にパディングしてラスタライズし、`picture/icons/icon-192.png` / `icon-512.png` / `apple-touch-icon.png`(180px)を生成。`manifest.webmanifest` の `icons` に192px/512pxのPNGを追加(SVGアイコンもフォールバックとして残す)。`index.html` に `<link rel="apple-touch-icon">` を追加。
+4. ✅ iOSでホーム画面に未追加の場合の案内バナー(`#ios-install-banner`)を追加。iOS(`iphone|ipad|ipod` UA、またはタッチ対応のiPadOS「MacIntel」偽装)かつ非standalone時のみ表示。閉じるボタンで `localStorage` にフラグを保存し次回以降は出さない。iOSは`beforeinstallprompt`に非対応のため、「共有ボタン→ホーム画面に追加」という手順文言で案内する。
 
-完了条件: 機内モードで起動して運指の閲覧・編集ができる。
+完了条件: 機内モードで起動して運指の閲覧・編集ができる。→ **達成。** プレビューサーバーを停止した状態(擬似オフライン)でリロードしてもアプリが完全に表示され、キーのタップによる運指編集も正常に動作することを確認済み。
 
 ## Phase 4: 共有プラットフォームMVP(機能4 前半)
 

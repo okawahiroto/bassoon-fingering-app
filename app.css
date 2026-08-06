@@ -75,6 +75,34 @@ body {
   padding: 2px 6px;
 }
 
+/* iOSでホーム画面に未追加の場合の案内(共有バナーと見分けやすいようグレー系に) */
+#ios-install-banner[hidden] { display: none; }
+#ios-install-banner {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #374151;
+}
+#ios-install-banner-text { flex: 1 1 auto; }
+#ios-install-dismiss-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #374151;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
 /* レイアウト: 上下に並べ、最大幅調整 */
 /* SVGは残り高をすべて使う */
 #bassoon-wrapper {
